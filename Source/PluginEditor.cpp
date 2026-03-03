@@ -103,6 +103,10 @@ AssistedMixingEditor::~AssistedMixingEditor()
 void AssistedMixingEditor::timerCallback()
 {
     processorRef.consumePendingPush();
+
+    auto currentName = processorRef.getTrackName();
+    if (trackNameLabel.getText() != currentName)
+        trackNameLabel.setText(currentName, juce::dontSendNotification);
 }
 
 void AssistedMixingEditor::applyTheme(int themeIndex)

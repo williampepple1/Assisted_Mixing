@@ -48,6 +48,8 @@ public:
     void getStateInformation(juce::MemoryBlock& destData) override;
     void setStateInformation(const void* data, int sizeInBytes) override;
 
+    void updateTrackProperties(const TrackProperties& properties) override;
+
     juce::AudioProcessorValueTreeState& getAPVTS() { return apvts; }
 
     void applyRule(Genre genre, Instrument instrument);

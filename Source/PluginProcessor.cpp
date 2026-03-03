@@ -433,6 +433,12 @@ void AssistedMixingProcessor::setTrackName(const juce::String& name)
         InstanceHub::getInstance().updateTrackName(instanceSlotId, name);
 }
 
+void AssistedMixingProcessor::updateTrackProperties(const TrackProperties& properties)
+{
+    if (properties.name.isNotEmpty())
+        setTrackName(properties.name);
+}
+
 InstanceParamSnapshot AssistedMixingProcessor::buildParamSnapshot() const
 {
     InstanceParamSnapshot snap;
