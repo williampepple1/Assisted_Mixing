@@ -16,6 +16,10 @@ WizardStyle=modern
 DisableDirPage=no
 InfoBeforeFile=about.txt
 DisableWelcomePage=no
+SetupIconFile=..\Resources\icon.ico
+UninstallDisplayIcon={app}\Contents\Resources\icon.ico
+WizardImageFile=..\Resources\icon.png
+WizardSmallImageFile=..\Resources\icon.png
 
 [Messages]
 WelcomeLabel1=Welcome to King Mixer Setup
@@ -26,6 +30,7 @@ InfoBeforeClickLabel=Please read the following information about King Mixer befo
 [Files]
 Source: "..\build\AssistedMixing_artefacts\Release\VST3\King Mixer.vst3\Contents\x86_64-win\King Mixer.vst3"; DestDir: "{app}\Contents\x86_64-win"; Flags: ignoreversion
 Source: "..\build\AssistedMixing_artefacts\Release\VST3\King Mixer.vst3\Contents\Resources\moduleinfo.json"; DestDir: "{app}\Contents\Resources"; Flags: ignoreversion
+Source: "..\Resources\icon.ico"; DestDir: "{app}\Contents\Resources"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\Uninstall King Mixer"; Filename: "{uninstallexe}"

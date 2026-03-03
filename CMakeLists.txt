@@ -27,6 +27,7 @@ juce_add_plugin(AssistedMixing
     EDITOR_WANTS_KEYBOARD_FOCUS FALSE
     COPY_PLUGIN_AFTER_BUILD FALSE
     ICON_BIG Resources/icon.png
+    ICON_SMALL Resources/icon.png
 )
 
 target_sources(AssistedMixing
