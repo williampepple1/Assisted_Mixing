@@ -296,6 +296,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout AssistedMixingProcessor::cre
 void AssistedMixingProcessor::getStateInformation(juce::MemoryBlock& destData)
 {
     auto state = apvts.copyState();
+    state.setProperty("uiTheme", themeIndex.load(), nullptr);
     std::unique_ptr<juce::XmlElement> xml(state.createXml());
     copyXmlToBinary(*xml, destData);
 }
@@ -304,7 +305,11 @@ void AssistedMixingProcessor::setStateInformation(const void* data, int sizeInBy
 {
     std::unique_ptr<juce::XmlElement> xml(getXmlFromBinary(data, sizeInBytes));
     if (xml != nullptr && xml->hasTagName(apvts.state.getType()))
-        apvts.replaceState(juce::ValueTree::fromXml(*xml));
+    {
+        auto newState = juce::ValueTree::fromXml(*xml);
+        themeIndex.store((int)newState.getProperty("uiTheme", 0));
+        apvts.replaceState(newState);
+    }
 }
 
 juce::AudioProcessorEditor* AssistedMixingProcessor::createEditor()
