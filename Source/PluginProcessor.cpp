@@ -248,7 +248,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout AssistedMixingProcessor::cre
             "Keys/Synths", "Strings", "Brass"}, 0));
 
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
-        "mixAmount", "Mix Amount", 0.0f, 1.0f, 1.0f));
+        "mixAmount", "Mix Amount", 0.0f, 1.0f, 0.0f));
 
     params.push_back(std::make_unique<juce::AudioParameterBool>(
         "bypass", "Bypass", false));
@@ -308,54 +308,54 @@ juce::AudioProcessorValueTreeState::ParameterLayout AssistedMixingProcessor::cre
 
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         "stereoWidth", "Stereo Width",
-        juce::NormalisableRange<float>(0.0f, 200.0f, 1.0f), 100.0f, "%"));
+        juce::NormalisableRange<float>(0.0f, 200.0f, 1.0f), 0.0f, "%"));
 
-    // Reverb
+    // Reverb — all defaults zeroed so user must set them
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         "revMix", "Rev Mix",
-        juce::NormalisableRange<float>(0.0f, 100.0f, 0.1f), 100.0f, "%"));
+        juce::NormalisableRange<float>(0.0f, 100.0f, 0.1f), 0.0f, "%"));
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         "revPredelay", "Rev Predelay",
-        juce::NormalisableRange<float>(0.0f, 1000.0f, 0.01f, 0.4f), 20.0f, "ms"));
+        juce::NormalisableRange<float>(0.0f, 1000.0f, 0.01f, 0.4f), 0.0f, "ms"));
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         "revDecay", "Rev Decay",
-        juce::NormalisableRange<float>(0.1f, 30.0f, 0.01f, 0.4f), 4.0f, "s"));
+        juce::NormalisableRange<float>(0.1f, 30.0f, 0.01f, 0.4f), 0.1f, "s"));
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         "revDampHiFreq", "Damp HighFreq",
-        juce::NormalisableRange<float>(200.0f, 20000.0f, 1.0f, 0.3f), 6000.0f, "Hz"));
+        juce::NormalisableRange<float>(200.0f, 20000.0f, 1.0f, 0.3f), 20000.0f, "Hz"));
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         "revDampHiShelf", "Damp HighShelf",
-        juce::NormalisableRange<float>(-48.0f, 0.0f, 0.01f), -24.0f, "dB"));
+        juce::NormalisableRange<float>(-48.0f, 0.0f, 0.01f), 0.0f, "dB"));
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         "revDampBassFreq", "Damp BassFreq",
-        juce::NormalisableRange<float>(20.0f, 2000.0f, 1.0f, 0.4f), 300.0f, "Hz"));
+        juce::NormalisableRange<float>(20.0f, 2000.0f, 1.0f, 0.4f), 20.0f, "Hz"));
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         "revDampBassMult", "Damp BassMult",
-        juce::NormalisableRange<float>(0.1f, 4.0f, 0.01f), 1.5f, "X"));
+        juce::NormalisableRange<float>(0.1f, 4.0f, 0.01f), 1.0f, "X"));
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         "revSize", "Rev Size",
-        juce::NormalisableRange<float>(0.0f, 100.0f, 0.1f), 100.0f, "%"));
+        juce::NormalisableRange<float>(0.0f, 100.0f, 0.1f), 0.0f, "%"));
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         "revAttack", "Rev Attack",
-        juce::NormalisableRange<float>(0.0f, 100.0f, 0.1f), 50.0f, "%"));
+        juce::NormalisableRange<float>(0.0f, 100.0f, 0.1f), 0.0f, "%"));
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         "revEarlyDiff", "Rev Early Diff",
-        juce::NormalisableRange<float>(0.0f, 100.0f, 0.1f), 100.0f, "%"));
+        juce::NormalisableRange<float>(0.0f, 100.0f, 0.1f), 0.0f, "%"));
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         "revLateDiff", "Rev Late Diff",
-        juce::NormalisableRange<float>(0.0f, 100.0f, 0.1f), 100.0f, "%"));
+        juce::NormalisableRange<float>(0.0f, 100.0f, 0.1f), 0.0f, "%"));
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         "revModRate", "Rev Mod Rate",
-        juce::NormalisableRange<float>(0.01f, 20.0f, 0.01f, 0.4f), 2.53f, "Hz"));
+        juce::NormalisableRange<float>(0.01f, 20.0f, 0.01f, 0.4f), 0.01f, "Hz"));
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         "revModDepth", "Rev Mod Depth",
-        juce::NormalisableRange<float>(0.0f, 100.0f, 0.1f), 38.0f, "%"));
+        juce::NormalisableRange<float>(0.0f, 100.0f, 0.1f), 0.0f, "%"));
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         "revEqHighCut", "Rev EQ HighCut",
-        juce::NormalisableRange<float>(200.0f, 20000.0f, 1.0f, 0.3f), 8000.0f, "Hz"));
+        juce::NormalisableRange<float>(200.0f, 20000.0f, 1.0f, 0.3f), 20000.0f, "Hz"));
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         "revEqLowCut", "Rev EQ LowCut",
-        juce::NormalisableRange<float>(5.0f, 2000.0f, 0.1f, 0.4f), 10.0f, "Hz"));
+        juce::NormalisableRange<float>(5.0f, 2000.0f, 0.1f, 0.4f), 5.0f, "Hz"));
     params.push_back(std::make_unique<juce::AudioParameterChoice>(
         "revMode", "Rev Mode", juce::StringArray{
             "Concert Hall", "Room", "Chamber", "Cathedral", "Plate"}, 0));
