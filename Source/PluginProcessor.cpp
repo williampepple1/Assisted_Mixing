@@ -47,8 +47,7 @@ AssistedMixingProcessor::AssistedMixingProcessor()
     bypassParam       = apvts.getRawParameterValue("bypass");
 
     instanceSlotId = InstanceHub::getInstance().registerInstance(trackName, false);
-    if (instanceSlotId < 0)
-        DBG("KingMixer: InstanceHub full, could not register instance");
+    juce::ignoreUnused(instanceSlotId);
 }
 
 AssistedMixingProcessor::~AssistedMixingProcessor()
