@@ -1,0 +1,15 @@
+build/
+_deps/
+CMakeFiles/
+cmake-build-*/
+.vs/
+.vscode/
+*.user
+*.suo
+*.db
+*.opendb
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+*.sln
+*.vcxproj*
