@@ -34,5 +34,5 @@ void Saturation::setDrive(float drivePercent)
 
 void Saturation::setMix(float mixPercent)
 {
-    mix = mixPercent / 100.0f;
+    mix = juce::jlimit(0.0f, 100.0f, mixPercent) / 100.0f;
 }
