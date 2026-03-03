@@ -15,11 +15,11 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(JUCE)
 
 juce_add_plugin(AssistedMixing
-    COMPANY_NAME "AssistedMixing"
-    PLUGIN_MANUFACTURER_CODE Amix
-    PLUGIN_CODE Amxr
+    COMPANY_NAME "KingMixer"
+    PLUGIN_MANUFACTURER_CODE Kmix
+    PLUGIN_CODE Kmxr
     FORMATS VST3 Standalone
-    PRODUCT_NAME "Assisted Mixing"
+    PRODUCT_NAME "King Mixer"
     IS_SYNTH FALSE
     NEEDS_MIDI_INPUT FALSE
     NEEDS_MIDI_OUTPUT FALSE

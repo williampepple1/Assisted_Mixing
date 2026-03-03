@@ -138,7 +138,7 @@ void AssistedMixingEditor::paint(juce::Graphics& g)
 
     g.setColour(juce::Colours::white);
     g.setFont(juce::Font(22.0f, juce::Font::bold));
-    g.drawText("Assisted Mixing", 10, 0, 200, kHeaderHeight, juce::Justification::centredLeft);
+    g.drawText("King Mixer", 10, 0, 200, kHeaderHeight, juce::Justification::centredLeft);
 
     // Section labels
     int y = kHeaderHeight + kMargin;
