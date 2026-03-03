@@ -63,7 +63,8 @@ AssistedMixingEditor::AssistedMixingEditor(AssistedMixingProcessor& p)
     addAndMakeVisible(satPanel.get());
 
     reverbPanel = std::make_unique<ReverbPanel>(apvts,
-        processorRef.getDryRevBuffer(), processorRef.getWetRevBuffer());
+        processorRef.getDryRevBuffer(), processorRef.getWetRevBuffer(),
+        processorRef.getReverbSend());
     addAndMakeVisible(reverbPanel.get());
 
     gainMixPanel = std::make_unique<GainMixPanel>(apvts,

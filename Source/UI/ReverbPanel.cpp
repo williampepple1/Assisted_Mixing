@@ -2,23 +2,60 @@
 #include <cmath>
 
 ReverbPanel::ReverbPanel(juce::AudioProcessorValueTreeState& a,
-                          WaveformBuffer& dry, WaveformBuffer& wet)
-    : apvts(a), dryBuf(dry), wetBuf(wet)
+                          WaveformBuffer& dry, WaveformBuffer& wet,
+                          ReverbSend& rev)
+    : apvts(a), dryBuf(dry), wetBuf(wet), reverbDSP(rev)
 {
     auto setupKnob = [&](juce::Slider& s, juce::Label& l, const juce::String& paramId) {
         s.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-        s.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 14);
+        s.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 58, 13);
         addAndMakeVisible(s);
         l.setJustificationType(juce::Justification::centred);
-        l.setFont(juce::Font(10.0f));
+        l.setFont(juce::Font(9.0f));
         addAndMakeVisible(l);
         attachments.push_back(std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
             apvts, paramId, s));
     };
 
-    setupKnob(sendSlider, lblSend, "reverbSend");
-    setupKnob(roomSizeSlider, lblRoomSize, "reverbRoomSize");
-    setupKnob(dampingSlider, lblDamping, "reverbDamping");
+    setupKnob(mixSlider, lblMix, "revMix");
+    setupKnob(predelaySlider, lblPredelay, "revPredelay");
+    setupKnob(decaySlider, lblDecay, "revDecay");
+
+    setupKnob(dampHiFreqSlider, lblDampHiFreq, "revDampHiFreq");
+    setupKnob(dampHiShelfSlider, lblDampHiShelf, "revDampHiShelf");
+    setupKnob(dampBassFreqSlider, lblDampBassFreq, "revDampBassFreq");
+    setupKnob(dampBassMultSlider, lblDampBassMult, "revDampBassMult");
+
+    setupKnob(sizeSlider, lblSize, "revSize");
+    setupKnob(attackSlider, lblAttack, "revAttack");
+
+    setupKnob(earlyDiffSlider, lblEarlyDiff, "revEarlyDiff");
+    setupKnob(lateDiffSlider, lblLateDiff, "revLateDiff");
+
+    setupKnob(modRateSlider, lblModRate, "revModRate");
+    setupKnob(modDepthSlider, lblModDepth, "revModDepth");
+
+    setupKnob(eqHighCutSlider, lblEqHighCut, "revEqHighCut");
+    setupKnob(eqLowCutSlider, lblEqLowCut, "revEqLowCut");
+
+    // Mode combo
+    modeBox.addItem("Concert Hall", 1);
+    modeBox.addItem("Room", 2);
+    modeBox.addItem("Chamber", 3);
+    modeBox.addItem("Cathedral", 4);
+    modeBox.addItem("Plate", 5);
+    addAndMakeVisible(modeBox);
+    modeAttach = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+        apvts, "revMode", modeBox);
+
+    // Color combo
+    colorBox.addItem("Clean", 1);
+    colorBox.addItem("1970s", 2);
+    colorBox.addItem("1980s", 3);
+    colorBox.addItem("Now", 4);
+    addAndMakeVisible(colorBox);
+    colorAttach = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+        apvts, "revColor", colorBox);
 
     startTimerHz(30);
 }
@@ -32,71 +69,67 @@ void ReverbPanel::timerCallback()
     repaint();
 }
 
-void ReverbPanel::drawDecayEnvelope(juce::Graphics& g, juce::Rectangle<int> area)
+void ReverbPanel::drawGroupBox(juce::Graphics& g, juce::Rectangle<int> area, const juce::String& title)
 {
     auto& t = getThemeFrom(this);
-    g.setColour(t.panelBg);
-    g.fillRect(area);
-
-    float roomSize = (float)roomSizeSlider.getValue();
-    float damping  = (float)dampingSlider.getValue();
-
-    float decayTime = 0.2f + roomSize * 2.8f;
-    float dampFactor = 1.0f - damping * 0.7f;
-
-    g.setColour(t.gridLine);
-    for (int i = 1; i <= 4; ++i)
-    {
-        float x = area.getX() + (float)i / 5.0f * (float)area.getWidth();
-        g.drawVerticalLine((int)x, (float)area.getY(), (float)area.getBottom());
-    }
-
-    juce::Path envelope;
-    for (int i = 0; i <= area.getWidth(); ++i)
-    {
-        float tt = (float)i / (float)area.getWidth() * 3.0f;
-        float amplitude = std::exp(-tt / decayTime) * dampFactor;
-        amplitude = juce::jlimit(0.0f, 1.0f, amplitude);
-
-        float x = (float)area.getX() + (float)i;
-        float y = area.getBottom() - amplitude * (float)area.getHeight() * 0.9f;
-
-        if (i == 0) envelope.startNewSubPath(x, y);
-        else envelope.lineTo(x, y);
-    }
+    g.setColour(t.panelBg.brighter(0.05f));
+    g.fillRoundedRectangle(area.toFloat(), 6.0f);
+    g.setColour(t.gridLine.brighter(0.1f));
+    g.drawRoundedRectangle(area.toFloat().reduced(0.5f), 6.0f, 1.0f);
 
     g.setColour(t.accent);
-    g.strokePath(envelope, juce::PathStrokeType(2.0f));
+    g.setFont(juce::Font(10.0f, juce::Font::bold));
+    g.drawText(title, area.getX(), area.getY() + 2, area.getWidth(), 14, juce::Justification::centred);
+}
 
-    juce::Path filled(envelope);
-    filled.lineTo((float)area.getRight(), (float)area.getBottom());
-    filled.lineTo((float)area.getX(), (float)area.getBottom());
-    filled.closeSubPath();
-    g.setColour(t.accent.withAlpha(0.08f));
-    g.fillPath(filled);
+void ReverbPanel::drawDecayRing(juce::Graphics& g, juce::Rectangle<int> area)
+{
+    auto& t = getThemeFrom(this);
 
-    juce::Random rng(42);
-    g.setColour(t.accent.withAlpha(0.4f));
-    for (int r = 0; r < 12; ++r)
-    {
-        float rt = rng.nextFloat() * 0.3f;
-        float amp = std::exp(-rt / decayTime) * dampFactor * (0.5f + rng.nextFloat() * 0.5f);
-        float x = area.getX() + rt / 3.0f * (float)area.getWidth();
-        float baseY = (float)area.getBottom();
-        float h = amp * (float)area.getHeight() * 0.8f;
-        g.drawLine(x, baseY, x, baseY - h, 1.5f);
-    }
+    float centreX = (float)area.getCentreX();
+    float centreY = (float)area.getCentreY();
+    float radius = (float)juce::jmin(area.getWidth(), area.getHeight()) * 0.4f;
+
+    float decay = (float)decaySlider.getValue();
+    float normalised = juce::jlimit(0.0f, 1.0f, decay / 30.0f);
+
+    float startAngle = juce::MathConstants<float>::pi * 0.75f;
+    float endAngle = juce::MathConstants<float>::pi * 2.25f;
+
+    // Background arc
+    juce::Path bgArc;
+    bgArc.addCentredArc(centreX, centreY, radius, radius, 0.0f, startAngle, endAngle, true);
+    g.setColour(t.gridLine);
+    g.strokePath(bgArc, juce::PathStrokeType(6.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+
+    // Value arc
+    float valueAngle = startAngle + normalised * (endAngle - startAngle);
+    juce::Path valArc;
+    valArc.addCentredArc(centreX, centreY, radius, radius, 0.0f, startAngle, valueAngle, true);
+    g.setColour(t.accentWarm);
+    g.strokePath(valArc, juce::PathStrokeType(6.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+
+    // Inner glow ring
+    juce::Path innerArc;
+    innerArc.addCentredArc(centreX, centreY, radius - 8.0f, radius - 8.0f, 0.0f, startAngle, valueAngle, true);
+    g.setColour(t.accentWarm.withAlpha(0.15f));
+    g.strokePath(innerArc, juce::PathStrokeType(4.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+
+    // Decay text
+    g.setColour(t.textBright);
+    g.setFont(juce::Font(16.0f, juce::Font::bold));
+    g.drawText(juce::String(decay, 2) + " s", area, juce::Justification::centred);
 
     g.setColour(t.textDim);
     g.setFont(9.0f);
-    g.drawText("DECAY ENVELOPE", area.getX() + 4, area.getY() + 2, 120, 12, juce::Justification::centredLeft);
+    g.drawText("DECAY", area.getX(), area.getBottom() - 14, area.getWidth(), 12, juce::Justification::centred);
 }
 
 void ReverbPanel::drawWaveformOverlay(juce::Graphics& g, juce::Rectangle<int> area)
 {
     auto& t = getThemeFrom(this);
     g.setColour(t.panelBg.darker(0.2f));
-    g.fillRect(area);
+    g.fillRoundedRectangle(area.toFloat(), 4.0f);
 
     auto drawWave = [&](const std::array<float, WaveformBuffer::bufferSize>& data, juce::Colour colour) {
         juce::Path p;
@@ -106,7 +139,7 @@ void ReverbPanel::drawWaveformOverlay(juce::Graphics& g, juce::Rectangle<int> ar
         {
             float x = area.getX() + (float)i / (float)displaySamples * (float)area.getWidth();
             float sample = data[static_cast<size_t>(i * step)];
-            float y = area.getCentreY() - sample * (float)area.getHeight() * 0.45f;
+            float y = area.getCentreY() - sample * (float)area.getHeight() * 0.4f;
             if (i == 0) p.startNewSubPath(x, y);
             else p.lineTo(x, y);
         }
@@ -114,42 +147,151 @@ void ReverbPanel::drawWaveformOverlay(juce::Graphics& g, juce::Rectangle<int> ar
         g.strokePath(p, juce::PathStrokeType(1.0f));
     };
 
-    drawWave(dryData, t.textDim.withAlpha(0.5f));
+    drawWave(dryData, t.textDim.withAlpha(0.4f));
     drawWave(wetData, t.accent);
 
+    g.setFont(8.0f);
     g.setColour(t.textDim);
-    g.setFont(9.0f);
-    g.drawText("DRY", area.getX() + 4, area.getY() + 2, 25, 12, juce::Justification::centredLeft);
+    g.drawText("DRY", area.getX() + 4, area.getY() + 2, 22, 10, juce::Justification::centredLeft);
     g.setColour(t.accent);
-    g.drawText("WET", area.getX() + 30, area.getY() + 2, 25, 12, juce::Justification::centredLeft);
+    g.drawText("WET", area.getX() + 28, area.getY() + 2, 22, 10, juce::Justification::centredLeft);
+}
+
+void ReverbPanel::drawModeColorBar(juce::Graphics& g, juce::Rectangle<int> area)
+{
+    auto& t = getThemeFrom(this);
+
+    g.setColour(t.textDim);
+    g.setFont(juce::Font(10.0f, juce::Font::bold));
+    g.drawText("MODE:", area.getX(), area.getY(), 45, area.getHeight(), juce::Justification::centredLeft);
+
+    int colorLabelX = area.getCentreX() - 10;
+    g.drawText("COLOR:", colorLabelX, area.getY(), 50, area.getHeight(), juce::Justification::centredLeft);
 }
 
 void ReverbPanel::paint(juce::Graphics& g)
 {
+    auto& t = getThemeFrom(this);
     auto area = getLocalBounds();
-    auto visArea = area.removeFromTop(area.getHeight() - 140);
 
-    auto decayArea = visArea.removeFromTop(visArea.getHeight() * 2 / 3).reduced(4);
-    auto waveArea = visArea.reduced(4);
+    // Bottom status bar with mode/color
+    auto bottomBar = area.removeFromBottom(30);
+    drawModeColorBar(g, bottomBar);
 
-    drawDecayEnvelope(g, decayArea);
+    // Waveform strip
+    auto waveArea = area.removeFromBottom(55).reduced(4, 2);
     drawWaveformOverlay(g, waveArea);
+
+    // Main knob area
+    auto topArea = area;
+
+    // Left column: MIX (small knob) + DECAY ring + PREDELAY
+    auto leftCol = topArea.removeFromLeft(160);
+    drawDecayRing(g, leftCol.reduced(10, 20));
+
+    // Group boxes for the parameter sections
+    int groupW = (topArea.getWidth()) / 5;
+    auto dampingArea = topArea.removeFromLeft(groupW + 20).reduced(3, 3);
+    auto shapeArea   = topArea.removeFromLeft(groupW - 10).reduced(3, 3);
+    auto diffArea    = topArea.removeFromLeft(groupW - 10).reduced(3, 3);
+    auto modArea     = topArea.removeFromLeft(groupW - 10).reduced(3, 3);
+    auto eqArea      = topArea.reduced(3, 3);
+
+    drawGroupBox(g, dampingArea, "DAMPING");
+    drawGroupBox(g, shapeArea, "SHAPE");
+    drawGroupBox(g, diffArea, "DIFF");
+    drawGroupBox(g, modArea, "MOD");
+    drawGroupBox(g, eqArea, "EQ");
 }
 
 void ReverbPanel::resized()
 {
     auto area = getLocalBounds();
-    area.removeFromTop(area.getHeight() - 140);
 
-    auto knobArea = area.reduced(40, 5);
-    int knobW = knobArea.getWidth() / 3;
+    // Bottom bar: mode/color combos
+    auto bottomBar = area.removeFromBottom(30);
+    auto bbLeft = bottomBar.removeFromLeft(bottomBar.getWidth() / 2);
+    modeBox.setBounds(bbLeft.removeFromLeft(180).reduced(48, 4));
+    colorBox.setBounds(bottomBar.removeFromLeft(180).reduced(50, 4));
 
-    struct KL { juce::Slider* s; juce::Label* l; };
-    KL knobs[] = { { &sendSlider, &lblSend }, { &roomSizeSlider, &lblRoomSize }, { &dampingSlider, &lblDamping } };
-    for (int i = 0; i < 3; ++i)
-    {
-        auto col = knobArea.removeFromLeft(knobW);
-        knobs[i].l->setBounds(col.removeFromTop(14));
-        knobs[i].s->setBounds(col.removeFromTop(65));
-    }
+    // Waveform strip
+    area.removeFromBottom(55);
+
+    // Left column: MIX + PREDELAY small knobs surrounding DECAY
+    auto leftCol = area.removeFromLeft(160);
+    auto mixArea = leftCol.removeFromTop(70);
+    mixSlider.setBounds(mixArea.removeFromLeft(75).reduced(4, 2));
+    lblMix.setBounds(mixArea.getX() - 75, mixArea.getY() - 2, 75, 12);
+
+    auto preArea = leftCol.removeFromBottom(70);
+    predelaySlider.setBounds(preArea.removeFromLeft(75).reduced(4, 2));
+    lblPredelay.setBounds(preArea.getX() - 75, preArea.getY() - 2, 75, 12);
+
+    // The DECAY slider is hidden (ring draws the value), but still needs bounds for attachment
+    decaySlider.setBounds(leftCol.reduced(20));
+    decaySlider.setAlpha(0.0f);
+    lblDecay.setBounds(0, 0, 0, 0);
+
+    // Parameter group columns
+    int groupW = (area.getWidth()) / 5;
+    int knobH = 55;
+    int lblH = 11;
+    int knobW = 52;
+    int topPad = 18;
+
+    auto layoutGroup2 = [&](juce::Rectangle<int> groupArea,
+                           juce::Slider& s1, juce::Label& l1,
+                           juce::Slider& s2, juce::Label& l2) {
+        auto inner = groupArea.reduced(4, topPad);
+        int halfW = inner.getWidth() / 2;
+        auto c1 = inner.removeFromLeft(halfW);
+        auto c2 = inner;
+        l1.setBounds(c1.removeFromTop(lblH));
+        s1.setBounds(c1.removeFromTop(knobH).withSizeKeepingCentre(knobW, knobH));
+        l2.setBounds(c2.removeFromTop(lblH));
+        s2.setBounds(c2.removeFromTop(knobH).withSizeKeepingCentre(knobW, knobH));
+    };
+
+    auto layoutGroup4 = [&](juce::Rectangle<int> groupArea,
+                           juce::Slider& s1, juce::Label& l1,
+                           juce::Slider& s2, juce::Label& l2,
+                           juce::Slider& s3, juce::Label& l3,
+                           juce::Slider& s4, juce::Label& l4) {
+        auto inner = groupArea.reduced(2, topPad);
+        int halfW = inner.getWidth() / 2;
+        int halfH = inner.getHeight() / 2;
+
+        auto topRow = inner.removeFromTop(halfH);
+        auto botRow = inner;
+        auto tl = topRow.removeFromLeft(halfW);
+        auto tr = topRow;
+        auto bl = botRow.removeFromLeft(halfW);
+        auto br = botRow;
+
+        l1.setBounds(tl.removeFromTop(lblH));
+        s1.setBounds(tl.removeFromTop(knobH).withSizeKeepingCentre(knobW, knobH));
+        l2.setBounds(tr.removeFromTop(lblH));
+        s2.setBounds(tr.removeFromTop(knobH).withSizeKeepingCentre(knobW, knobH));
+        l3.setBounds(bl.removeFromTop(lblH));
+        s3.setBounds(bl.removeFromTop(knobH).withSizeKeepingCentre(knobW, knobH));
+        l4.setBounds(br.removeFromTop(lblH));
+        s4.setBounds(br.removeFromTop(knobH).withSizeKeepingCentre(knobW, knobH));
+    };
+
+    auto dampingArea = area.removeFromLeft(groupW + 20).reduced(3, 3);
+    auto shapeArea   = area.removeFromLeft(groupW - 10).reduced(3, 3);
+    auto diffArea    = area.removeFromLeft(groupW - 10).reduced(3, 3);
+    auto modArea     = area.removeFromLeft(groupW - 10).reduced(3, 3);
+    auto eqArea      = area.reduced(3, 3);
+
+    layoutGroup4(dampingArea,
+        dampHiFreqSlider, lblDampHiFreq,
+        dampHiShelfSlider, lblDampHiShelf,
+        dampBassFreqSlider, lblDampBassFreq,
+        dampBassMultSlider, lblDampBassMult);
+
+    layoutGroup2(shapeArea, sizeSlider, lblSize, attackSlider, lblAttack);
+    layoutGroup2(diffArea, earlyDiffSlider, lblEarlyDiff, lateDiffSlider, lblLateDiff);
+    layoutGroup2(modArea, modRateSlider, lblModRate, modDepthSlider, lblModDepth);
+    layoutGroup2(eqArea, eqHighCutSlider, lblEqHighCut, eqLowCutSlider, lblEqLowCut);
 }

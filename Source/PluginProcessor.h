@@ -63,6 +63,7 @@ public:
     WaveformBuffer& getPostSatBuffer() { return postSatBuffer; }
     WaveformBuffer& getDryRevBuffer()  { return dryRevBuffer; }
     WaveformBuffer& getWetRevBuffer()  { return wetRevBuffer; }
+    ReverbSend& getReverbSend() { return reverbSend; }
 
     int getThemeIndex() const { return themeIndex.load(); }
     void setThemeIndex(int idx) { themeIndex.store(idx); }
@@ -106,9 +107,23 @@ private:
     std::atomic<float>* satDriveParam = nullptr;
     std::atomic<float>* satMixParam = nullptr;
     std::atomic<float>* stereoWidthParam = nullptr;
-    std::atomic<float>* reverbSendParam = nullptr;
-    std::atomic<float>* reverbRoomSizeParam = nullptr;
-    std::atomic<float>* reverbDampingParam = nullptr;
+    std::atomic<float>* revMixParam = nullptr;
+    std::atomic<float>* revPredelayParam = nullptr;
+    std::atomic<float>* revDecayParam = nullptr;
+    std::atomic<float>* revDampHiFreqParam = nullptr;
+    std::atomic<float>* revDampHiShelfParam = nullptr;
+    std::atomic<float>* revDampBassFreqParam = nullptr;
+    std::atomic<float>* revDampBassMultParam = nullptr;
+    std::atomic<float>* revSizeParam = nullptr;
+    std::atomic<float>* revAttackParam = nullptr;
+    std::atomic<float>* revEarlyDiffParam = nullptr;
+    std::atomic<float>* revLateDiffParam = nullptr;
+    std::atomic<float>* revModRateParam = nullptr;
+    std::atomic<float>* revModDepthParam = nullptr;
+    std::atomic<float>* revEqHighCutParam = nullptr;
+    std::atomic<float>* revEqLowCutParam = nullptr;
+    std::atomic<float>* revModeParam = nullptr;
+    std::atomic<float>* revColorParam = nullptr;
     std::atomic<float>* mixAmountParam = nullptr;
     std::atomic<float>* bypassParam = nullptr;
 

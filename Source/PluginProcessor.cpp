@@ -27,9 +27,23 @@ AssistedMixingProcessor::AssistedMixingProcessor()
     satDriveParam     = apvts.getRawParameterValue("satDrive");
     satMixParam       = apvts.getRawParameterValue("satMix");
     stereoWidthParam  = apvts.getRawParameterValue("stereoWidth");
-    reverbSendParam   = apvts.getRawParameterValue("reverbSend");
-    reverbRoomSizeParam = apvts.getRawParameterValue("reverbRoomSize");
-    reverbDampingParam  = apvts.getRawParameterValue("reverbDamping");
+    revMixParam          = apvts.getRawParameterValue("revMix");
+    revPredelayParam     = apvts.getRawParameterValue("revPredelay");
+    revDecayParam        = apvts.getRawParameterValue("revDecay");
+    revDampHiFreqParam   = apvts.getRawParameterValue("revDampHiFreq");
+    revDampHiShelfParam  = apvts.getRawParameterValue("revDampHiShelf");
+    revDampBassFreqParam = apvts.getRawParameterValue("revDampBassFreq");
+    revDampBassMultParam = apvts.getRawParameterValue("revDampBassMult");
+    revSizeParam         = apvts.getRawParameterValue("revSize");
+    revAttackParam       = apvts.getRawParameterValue("revAttack");
+    revEarlyDiffParam    = apvts.getRawParameterValue("revEarlyDiff");
+    revLateDiffParam     = apvts.getRawParameterValue("revLateDiff");
+    revModRateParam      = apvts.getRawParameterValue("revModRate");
+    revModDepthParam     = apvts.getRawParameterValue("revModDepth");
+    revEqHighCutParam    = apvts.getRawParameterValue("revEqHighCut");
+    revEqLowCutParam     = apvts.getRawParameterValue("revEqLowCut");
+    revModeParam         = apvts.getRawParameterValue("revMode");
+    revColorParam        = apvts.getRawParameterValue("revColor");
     mixAmountParam    = apvts.getRawParameterValue("mixAmount");
     bypassParam       = apvts.getRawParameterValue("bypass");
 }
@@ -138,9 +152,23 @@ void AssistedMixingProcessor::processBlock(juce::AudioBuffer<float>& buffer, juc
     if (buffer.getNumChannels() > 0)
         dryRevBuffer.pushSamples(buffer.getReadPointer(0), buffer.getNumSamples());
 
-    reverbSend.setSendLevel(reverbSendParam->load());
-    reverbSend.setRoomSize(reverbRoomSizeParam->load());
-    reverbSend.setDamping(reverbDampingParam->load());
+    reverbSend.setMix(revMixParam->load());
+    reverbSend.setPredelay(revPredelayParam->load());
+    reverbSend.setDecay(revDecayParam->load());
+    reverbSend.setDampHighFreq(revDampHiFreqParam->load());
+    reverbSend.setDampHighShelf(revDampHiShelfParam->load());
+    reverbSend.setDampBassFreq(revDampBassFreqParam->load());
+    reverbSend.setDampBassMult(revDampBassMultParam->load());
+    reverbSend.setSize(revSizeParam->load());
+    reverbSend.setAttack(revAttackParam->load());
+    reverbSend.setEarlyDiffusion(revEarlyDiffParam->load());
+    reverbSend.setLateDiffusion(revLateDiffParam->load());
+    reverbSend.setModRate(revModRateParam->load());
+    reverbSend.setModDepth(revModDepthParam->load());
+    reverbSend.setEqHighCut(revEqHighCutParam->load());
+    reverbSend.setEqLowCut(revEqLowCutParam->load());
+    reverbSend.setMode(static_cast<int>(revModeParam->load()));
+    reverbSend.setColor(static_cast<int>(revColorParam->load()));
     reverbSend.process(buffer);
 
     // Post-reverb waveform
@@ -193,7 +221,10 @@ void AssistedMixingProcessor::applyRule(Genre genre, Instrument instrument)
     setParam("satDrive", rule.satDrive);
     setParam("satMix", rule.satMix);
     setParam("stereoWidth", rule.stereoWidth);
-    setParam("reverbSend", rule.reverbSend);
+    if (rule.reverbSend > -59.0f)
+        setParam("revMix", juce::jlimit(0.0f, 100.0f, juce::Decibels::decibelsToGain(rule.reverbSend) * 100.0f));
+    else
+        setParam("revMix", 0.0f);
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout AssistedMixingProcessor::createParameterLayout()
@@ -280,15 +311,58 @@ juce::AudioProcessorValueTreeState::ParameterLayout AssistedMixingProcessor::cre
         "stereoWidth", "Stereo Width",
         juce::NormalisableRange<float>(0.0f, 200.0f, 1.0f), 100.0f, "%"));
 
+    // Reverb
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
-        "reverbSend", "Reverb Send",
-        juce::NormalisableRange<float>(-60.0f, 0.0f, 0.1f), -60.0f, "dB"));
+        "revMix", "Rev Mix",
+        juce::NormalisableRange<float>(0.0f, 100.0f, 0.1f), 100.0f, "%"));
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
-        "reverbRoomSize", "Room Size",
-        juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f), 0.5f));
+        "revPredelay", "Rev Predelay",
+        juce::NormalisableRange<float>(0.0f, 1000.0f, 0.01f, 0.4f), 20.0f, "ms"));
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
-        "reverbDamping", "Damping",
-        juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f), 0.5f));
+        "revDecay", "Rev Decay",
+        juce::NormalisableRange<float>(0.1f, 30.0f, 0.01f, 0.4f), 4.0f, "s"));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "revDampHiFreq", "Damp HighFreq",
+        juce::NormalisableRange<float>(200.0f, 20000.0f, 1.0f, 0.3f), 6000.0f, "Hz"));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "revDampHiShelf", "Damp HighShelf",
+        juce::NormalisableRange<float>(-48.0f, 0.0f, 0.01f), -24.0f, "dB"));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "revDampBassFreq", "Damp BassFreq",
+        juce::NormalisableRange<float>(20.0f, 2000.0f, 1.0f, 0.4f), 300.0f, "Hz"));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "revDampBassMult", "Damp BassMult",
+        juce::NormalisableRange<float>(0.1f, 4.0f, 0.01f), 1.5f, "X"));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "revSize", "Rev Size",
+        juce::NormalisableRange<float>(0.0f, 100.0f, 0.1f), 100.0f, "%"));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "revAttack", "Rev Attack",
+        juce::NormalisableRange<float>(0.0f, 100.0f, 0.1f), 50.0f, "%"));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "revEarlyDiff", "Rev Early Diff",
+        juce::NormalisableRange<float>(0.0f, 100.0f, 0.1f), 100.0f, "%"));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "revLateDiff", "Rev Late Diff",
+        juce::NormalisableRange<float>(0.0f, 100.0f, 0.1f), 100.0f, "%"));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "revModRate", "Rev Mod Rate",
+        juce::NormalisableRange<float>(0.01f, 20.0f, 0.01f, 0.4f), 2.53f, "Hz"));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "revModDepth", "Rev Mod Depth",
+        juce::NormalisableRange<float>(0.0f, 100.0f, 0.1f), 38.0f, "%"));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "revEqHighCut", "Rev EQ HighCut",
+        juce::NormalisableRange<float>(200.0f, 20000.0f, 1.0f, 0.3f), 8000.0f, "Hz"));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "revEqLowCut", "Rev EQ LowCut",
+        juce::NormalisableRange<float>(5.0f, 2000.0f, 0.1f, 0.4f), 10.0f, "Hz"));
+    params.push_back(std::make_unique<juce::AudioParameterChoice>(
+        "revMode", "Rev Mode", juce::StringArray{
+            "Concert Hall", "Room", "Chamber", "Cathedral", "Plate"}, 0));
+    params.push_back(std::make_unique<juce::AudioParameterChoice>(
+        "revColor", "Rev Color", juce::StringArray{
+            "Clean", "1970s", "1980s", "Now"}, 0));
 
     return { params.begin(), params.end() };
 }
