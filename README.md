@@ -1,25 +1,74 @@
-# King Mixer - VST3 Plugin
+<p align="center">
+  <img src="Resources/icon.png" alt="King Mixer" width="128" height="128">
+</p>
 
-A JUCE-based VST3 channel strip plugin that applies rule-based mixing presets based on genre and instrument selection. Insert it on individual tracks in your DAW, select the genre and instrument, and let King Mixer configure EQ, compression, saturation, stereo width, and reverb send to mixing best-practice starting points.
+<h1 align="center">King Mixer</h1>
+
+<p align="center">
+  <strong>Intelligent VST3 Channel Strip &amp; Mix Command Center</strong>
+</p>
+
+---
+
+A JUCE-based VST3 channel strip plugin that applies rule-based mixing presets based on genre and instrument selection. Place it on every track in your DAW, then use the **Master Bus Controller** to manage your entire mix from one window.
 
 ## Features
 
-- **8 genres**: Rock, Pop, Hip-Hop, EDM, Jazz, R&B, Metal, Classical
-- **8 instrument categories**: Vocals, Drums, Bass, Electric Guitar, Acoustic Guitar, Keys/Synths, Strings, Brass
-- **6 DSP modules** in series:
-  1. Input/Output Gain Staging
-  2. 4-Band Parametric EQ (Low Shelf, Low-Mid Peak, High-Mid Peak, High Shelf)
-  3. Compressor with Makeup Gain
-  4. Saturation (tanh soft-clip waveshaper)
-  5. Stereo Width (mid-side processing)
-  6. Reverb Send (built-in reverb with send level control)
-- **64 curated rule presets** (8 genres x 8 instruments) based on professional mixing conventions
-- **Mix Amount** knob to blend between dry signal and processed signal
-- **Bypass** toggle
-- Full preset save/load via DAW session state
+- **8-Band Interactive Parametric EQ**
+  - 7 filter types per band: Peak, Low Shelf, High Shelf, Low Cut, High Cut, Band Pass, Notch
+  - Draggable nodes on a real-time spectrum analyzer
+  - Mouse wheel Q control, double-click reset, right-click context menu
+
+- **Compressor** with real-time gain reduction meter, scrolling timeline, and transfer curve
+
+- **Saturation** with tanh soft-clip waveshaper, before/after waveform comparison, and transfer curve
+
+- **Advanced Reverb Engine**
+  - Predelay, Decay, Size, Attack/Shape
+  - Hi/Bass Damping, Early & Late Diffusion, Modulation, Output EQ
+  - 5 Modes (Concert Hall, Room, Chamber, Cathedral, Plate) and 4 Colors (Clean, 1970s, 1980s, Now)
+  - Dry/wet waveform overlay and decay ring visualization
+
+- **Stereo Width** (mid-side processing)
+
+- **Input/Output Gain Staging** with stereo VU meters and correlation meter
+
+- **Master Bus Controller**
+  - Place King Mixer on each track and on the master bus
+  - See all track instances with live level meters, gain reduction, and parameter readouts
+  - Solo (S) and Mute (M) any track from the master
+  - Click any track to open a full remote parameter editor
+  - Every edit from the master propagates instantly to the child instance
+  - Editable track names for easy identification
+
+- **64 curated mix presets** (8 genres x 8 instruments) based on professional mixing conventions
+
+- **5 selectable UI themes**: Charcoal (default), Midnight, Mocha, Royal Gold, Arctic
+
+- **Mix Amount** knob and **Bypass** toggle
+
+- Full state save/load via DAW sessions
+
 - Available as **VST3** and **Standalone** application
 
-## Building
+### Supported Genres
+
+Rock, Pop, Hip-Hop, EDM, Jazz, R&B, Metal, Classical
+
+### Supported Instruments
+
+Vocals, Drums, Bass, Electric Guitar, Acoustic Guitar, Keys/Synths, Strings, Brass
+
+## Installation
+
+Download the installer or ZIP from the releases:
+
+- **Installer** (`KingMixerInstaller.exe`) — installs to your system VST3 directory automatically
+- **ZIP** (`KingMixer_VST3.zip`) — extract manually to your VST3 folder
+
+No external dependencies required.
+
+## Building from Source
 
 ### Requirements
 
@@ -30,10 +79,7 @@ A JUCE-based VST3 channel strip plugin that applies rule-based mixing presets ba
 ### Steps
 
 ```bash
-# Configure (downloads JUCE automatically via FetchContent)
 cmake -B build -S .
-
-# Build Release
 cmake --build build --config Release
 ```
 
@@ -42,38 +88,52 @@ cmake --build build --config Release
 - **VST3**: `build/AssistedMixing_artefacts/Release/VST3/King Mixer.vst3/`
 - **Standalone**: `build/AssistedMixing_artefacts/Release/Standalone/King Mixer.exe`
 
-To install the VST3 plugin, copy the `.vst3` folder to your system's VST3 directory:
+To install the VST3 manually, copy the `.vst3` folder to:
 - **Windows**: `C:\Program Files\Common Files\VST3\`
 - **macOS**: `~/Library/Audio/Plug-Ins/VST3/`
 - **Linux**: `~/.vst3/`
 
 ## Usage
 
-1. Insert "King Mixer" as a VST3 plugin on a track in your DAW
-2. Select the **Genre** (e.g., Rock, Pop, EDM)
-3. Select the **Instrument** (e.g., Vocals, Drums, Bass)
-4. Click **Apply Rule** to load the recommended mix settings
-5. Fine-tune any parameter manually using the knobs
-6. Use the **Mix Amount** slider to blend between dry and processed signal
-7. Toggle **Bypass** to compare with the original signal
+1. Insert **King Mixer** on a track and give it a name
+2. Select the **Genre** and **Instrument**
+3. Click **Apply Rule** to load recommended settings
+4. Fine-tune using the tabbed interface (EQ, Comp, Sat, Reverb, Gain/Mix)
+5. For master control: place King Mixer on the master bus, enable **Master**, and open the **MASTER** tab
+6. Click any track strip to open a full remote editor — changes propagate instantly
 
 ## Project Structure
 
 ```
 Source/
-  PluginProcessor.h/.cpp    - Audio processor, DSP chain, APVTS parameters
-  PluginEditor.h/.cpp       - UI with genre/instrument selectors and knob strips
+  PluginProcessor.h/.cpp       - Audio processor, DSP chain, APVTS, IPC integration
+  PluginEditor.h/.cpp          - Tabbed UI with header controls and theme selector
+  IPC/
+    InstanceHub.h              - Process-wide singleton for inter-instance communication
   DSP/
-    GainStage.h/.cpp        - Input/output gain
-    ParametricEQ.h/.cpp     - 4-band parametric EQ
-    Compressor.h/.cpp       - Dynamics compressor with makeup gain
-    Saturation.h/.cpp       - Tanh waveshaper saturation
-    StereoWidth.h/.cpp      - Mid-side stereo width control
-    ReverbSend.h/.cpp       - Reverb with send level
+    GainStage.h/.cpp           - Input/output gain
+    ParametricEQ.h/.cpp        - 8-band parametric EQ with 7 filter types
+    Compressor.h/.cpp          - Dynamics compressor with level metrics
+    Saturation.h/.cpp          - Tanh waveshaper saturation
+    StereoWidth.h/.cpp         - Mid-side stereo width control
+    ReverbSend.h/.cpp          - Advanced reverb with damping, diffusion, modulation, EQ
   Rules/
-    GenreInstrumentDefs.h   - Genre and Instrument enums
-    MixRule.h               - MixRule struct with all DSP parameter targets
-    MixRuleDatabase.h/.cpp  - Lookup table of 64 genre+instrument mix rules
+    GenreInstrumentDefs.h      - Genre and Instrument enums
+    MixRule.h                  - MixRule struct
+    MixRuleDatabase.h/.cpp     - 64 genre+instrument mix rules
+  Analysis/
+    SpectrumAnalyzer.h/.cpp    - FFT spectrum analysis
+    LevelMeter.h/.cpp          - Peak/RMS level tracking
+    WaveformBuffer.h/.cpp      - Circular waveform buffer
+  UI/
+    CustomLookAndFeel.h/.cpp   - Theme system with 5 presets
+    EQPanel.h/.cpp             - Interactive EQ with draggable nodes
+    CompressorPanel.h/.cpp     - Compressor visuals (GR meter, timeline, curve)
+    SaturationPanel.h/.cpp     - Waveshaper curve and waveform comparison
+    ReverbPanel.h/.cpp         - Reverb controls with decay ring and waveform overlay
+    GainMixPanel.h/.cpp        - VU meters and stereo correlation
+    MasterBusPanel.h/.cpp      - Master bus controller with track strips
+    TrackEditorPanel.h/.cpp    - Remote parameter editor for child instances
 ```
 
 ## License
