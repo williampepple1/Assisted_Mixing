@@ -23,7 +23,8 @@ private:
     juce::dsp::FFT forwardFFT;
     juce::dsp::WindowingFunction<float> window;
 
-    std::array<float, fftSize * 2> fftData{};
+    std::array<float, fftSize * 2> fftStaging{};
+    std::array<float, fftSize * 2> fftWork{};
     int fifoIndex = 0;
     std::array<float, fftSize> fifo{};
     std::atomic<bool> nextBlockReady{ false };

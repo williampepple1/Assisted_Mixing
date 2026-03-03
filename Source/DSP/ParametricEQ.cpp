@@ -20,7 +20,11 @@ void ParametricEQ::prepare(const juce::dsp::ProcessSpec& spec)
     {
         auto c = makeCoeffs(static_cast<EQFilterType>(bandStates[i].filterType),
                             spec.sampleRate, bandStates[i].frequency, bandStates[i].gainDB, bandStates[i].q);
-        if (c) { bands[i].coeffs = c; *bands[i].filter.state = *c; }
+        if (c)
+        {
+            bands[i].coeffs = c;
+            if (bands[i].filter.state) *bands[i].filter.state = *c;
+        }
         bands[i].active = bandStates[i].enabled;
     }
 }
@@ -73,7 +77,8 @@ void ParametricEQ::updateBand(int index, float freq, float gain, float q, int ty
     if (c)
     {
         bands[static_cast<size_t>(index)].coeffs = c;
-        *bands[static_cast<size_t>(index)].filter.state = *c;
+        if (bands[static_cast<size_t>(index)].filter.state)
+            *bands[static_cast<size_t>(index)].filter.state = *c;
     }
     bands[static_cast<size_t>(index)].active = enabled;
 }
@@ -92,6 +97,9 @@ void ParametricEQ::updateBands(float lowFreq, float lowGain,
 
 void ParametricEQ::getMagnitudeResponse(const double* frequencies, double* magnitudes, int numPoints, double sampleRate) const
 {
+    if (!frequencies || !magnitudes || numPoints <= 0)
+        return;
+
     for (int i = 0; i < numPoints; ++i)
         magnitudes[i] = 1.0;
 
@@ -109,6 +117,9 @@ void ParametricEQ::getMagnitudeResponse(const double* frequencies, double* magni
 
 void ParametricEQ::getBandMagnitudeResponse(int bandIndex, const double* frequencies, double* magnitudes, int numPoints, double sampleRate) const
 {
+    if (!frequencies || !magnitudes || numPoints <= 0)
+        return;
+
     for (int i = 0; i < numPoints; ++i)
         magnitudes[i] = 1.0;
 

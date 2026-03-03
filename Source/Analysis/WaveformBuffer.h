@@ -13,6 +13,9 @@ public:
     void copyTo(std::array<float, bufferSize>& dest) const;
 
 private:
-    std::array<float, bufferSize> buffer{};
+    std::array<float, bufferSize> bufferA{};
+    std::array<float, bufferSize> bufferB{};
     std::atomic<int> writePos{ 0 };
+    std::atomic<int> activeBuffer{ 0 };
+    std::atomic<bool> snapshotReady{ false };
 };

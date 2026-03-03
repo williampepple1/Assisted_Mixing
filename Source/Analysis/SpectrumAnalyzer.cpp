@@ -17,9 +17,9 @@ void SpectrumAnalyzer::pushSamples(const float* data, int numSamples)
 
         if (fifoIndex >= fftSize)
         {
-            std::copy(fifo.begin(), fifo.end(), fftData.begin());
-            std::fill(fftData.begin() + fftSize, fftData.end(), 0.0f);
-            nextBlockReady.store(true);
+            std::copy(fifo.begin(), fifo.end(), fftStaging.begin());
+            std::fill(fftStaging.begin() + fftSize, fftStaging.end(), 0.0f);
+            nextBlockReady.store(true, std::memory_order_release);
             fifoIndex = 0;
         }
     }
@@ -27,11 +27,13 @@ void SpectrumAnalyzer::pushSamples(const float* data, int numSamples)
 
 bool SpectrumAnalyzer::getNextBlock(std::array<float, scopeSize>& output)
 {
-    if (!nextBlockReady.exchange(false))
+    if (!nextBlockReady.exchange(false, std::memory_order_acq_rel))
         return false;
 
-    window.multiplyWithWindowingTable(fftData.data(), fftSize);
-    forwardFFT.performFrequencyOnlyForwardTransform(fftData.data());
+    std::copy(fftStaging.begin(), fftStaging.end(), fftWork.begin());
+
+    window.multiplyWithWindowingTable(fftWork.data(), fftSize);
+    forwardFFT.performFrequencyOnlyForwardTransform(fftWork.data());
 
     const float minDB = -80.0f;
     const float maxDB = 0.0f;
@@ -44,7 +46,7 @@ bool SpectrumAnalyzer::getNextBlock(std::array<float, scopeSize>& output)
         fftIndex = juce::jmin(fftIndex, fftSize / 2 - 1);
         fftIndex = juce::jmax(fftIndex, 0);
 
-        float magnitude = fftData[static_cast<size_t>(fftIndex)];
+        float magnitude = fftWork[static_cast<size_t>(fftIndex)];
         if (!std::isfinite(magnitude)) magnitude = 0.0f;
         float level = juce::jlimit(minDB, maxDB,
             juce::Decibels::gainToDecibels(magnitude / static_cast<float>(fftSize)));

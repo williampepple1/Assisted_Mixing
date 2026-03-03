@@ -159,12 +159,12 @@ void AssistedMixingEditor::showTab(int index)
     if (index < 0 || index >= NumTabs) return;
     activeTab = index;
 
-    eqPanel->setVisible(index == TabEQ);
-    compPanel->setVisible(index == TabComp);
-    satPanel->setVisible(index == TabSat);
-    reverbPanel->setVisible(index == TabReverb);
-    gainMixPanel->setVisible(index == TabGainMix);
-    masterBusPanel->setVisible(index == TabMaster);
+    if (eqPanel) eqPanel->setVisible(index == TabEQ);
+    if (compPanel) compPanel->setVisible(index == TabComp);
+    if (satPanel) satPanel->setVisible(index == TabSat);
+    if (reverbPanel) reverbPanel->setVisible(index == TabReverb);
+    if (gainMixPanel) gainMixPanel->setVisible(index == TabGainMix);
+    if (masterBusPanel) masterBusPanel->setVisible(index == TabMaster);
 
     for (int i = 0; i < NumTabs; ++i)
         tabButtons[(size_t)i].setToggleState(i == index, juce::dontSendNotification);
@@ -296,10 +296,10 @@ void AssistedMixingEditor::resized()
 
     // Panel content
     auto panelArea = area;
-    eqPanel->setBounds(panelArea);
-    compPanel->setBounds(panelArea);
-    satPanel->setBounds(panelArea);
-    reverbPanel->setBounds(panelArea);
-    gainMixPanel->setBounds(panelArea);
-    masterBusPanel->setBounds(panelArea);
+    if (eqPanel) eqPanel->setBounds(panelArea);
+    if (compPanel) compPanel->setBounds(panelArea);
+    if (satPanel) satPanel->setBounds(panelArea);
+    if (reverbPanel) reverbPanel->setBounds(panelArea);
+    if (gainMixPanel) gainMixPanel->setBounds(panelArea);
+    if (masterBusPanel) masterBusPanel->setBounds(panelArea);
 }
