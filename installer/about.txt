@@ -1,0 +1,37 @@
+Welcome to King Mixer - Your Intelligent Mixing Assistant
+
+King Mixer is a VST3 channel strip plugin designed to give you
+professional-quality mix starting points in seconds. Simply select
+your genre and instrument, click Apply Rule, and King Mixer sets
+all the key parameters to match industry-standard mixing practices.
+
+WHAT'S INCLUDED:
+
+  - 4-Band Parametric EQ (Low Shelf, Low-Mid, High-Mid, High Shelf)
+  - Compressor with Makeup Gain
+  - Saturation (analog-style tanh waveshaper)
+  - Stereo Width Control (mid-side processing)
+  - Reverb Send
+  - Input / Output Gain Staging
+
+SUPPORTED GENRES:
+
+  Rock, Pop, Hip-Hop, EDM, Jazz, R&B, Metal, Classical
+
+SUPPORTED INSTRUMENTS:
+
+  Vocals, Drums, Bass, Electric Guitar, Acoustic Guitar,
+  Keys/Synths, Strings, Brass
+
+HOW TO USE:
+
+  1. Load King Mixer as a VST3 plugin on any track in your DAW
+  2. Select the Genre and Instrument from the dropdowns
+  3. Click "Apply Rule" to load recommended settings
+  4. Fine-tune any knob to taste
+  5. Use the Mix knob to blend between dry and processed signal
+
+64 curated mix presets (8 genres x 8 instruments) are built in,
+each one crafted from professional mixing best practices.
+
+No external dependencies required. Just install and go.

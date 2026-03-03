@@ -29,3 +29,13 @@ void ReverbSend::setSendLevel(float levelDB)
     else
         sendLevel = juce::Decibels::decibelsToGain(levelDB);
 }
+
+void ReverbSend::setRoomSize(float size)
+{
+    reverbParams.roomSize = juce::jlimit(0.0f, 1.0f, size);
+}
+
+void ReverbSend::setDamping(float damp)
+{
+    reverbParams.damping = juce::jlimit(0.0f, 1.0f, damp);
+}

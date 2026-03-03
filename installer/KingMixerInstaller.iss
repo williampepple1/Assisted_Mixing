@@ -1,0 +1,37 @@
+[Setup]
+AppName=King Mixer
+AppVersion=1.0.0
+AppPublisher=KingMixer
+AppPublisherURL=https://github.com
+DefaultDirName={commoncf}\VST3\King Mixer.vst3
+DirExistsWarning=no
+DisableProgramGroupPage=yes
+OutputDir=..\
+OutputBaseFilename=KingMixerInstaller
+Compression=lzma2/ultra64
+SolidCompression=yes
+PrivilegesRequired=admin
+UninstallDisplayName=King Mixer VST3
+WizardStyle=modern
+DisableDirPage=no
+InfoBeforeFile=about.txt
+DisableWelcomePage=no
+
+[Messages]
+WelcomeLabel1=Welcome to King Mixer Setup
+WelcomeLabel2=This will install King Mixer v1.0.0 on your computer.%n%nKing Mixer is an intelligent VST3 channel strip plugin that applies genre-aware and instrument-specific mixing presets instantly. Select your genre, pick your instrument, and get a professional mix starting point in one click.%n%nIt is recommended that you close any running DAWs before continuing.
+SelectDirLabel3=King Mixer VST3 will be installed into the following folder.%nThe default location is the standard VST3 directory. Most DAWs scan this folder automatically.
+InfoBeforeClickLabel=Please read the following information about King Mixer before continuing.
+
+[Files]
+Source: "..\build\AssistedMixing_artefacts\Release\VST3\King Mixer.vst3\Contents\x86_64-win\King Mixer.vst3"; DestDir: "{app}\Contents\x86_64-win"; Flags: ignoreversion
+Source: "..\build\AssistedMixing_artefacts\Release\VST3\King Mixer.vst3\Contents\Resources\moduleinfo.json"; DestDir: "{app}\Contents\Resources"; Flags: ignoreversion
+
+[Icons]
+Name: "{group}\Uninstall King Mixer"; Filename: "{uninstallexe}"
+
+[Code]
+function NextButtonClick(CurPageID: Integer): Boolean;
+begin
+  Result := True;
+end;

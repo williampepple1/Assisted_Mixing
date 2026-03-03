@@ -11,6 +11,9 @@
 #include "DSP/ReverbSend.h"
 #include "Rules/GenreInstrumentDefs.h"
 #include "Rules/MixRuleDatabase.h"
+#include "Analysis/SpectrumAnalyzer.h"
+#include "Analysis/LevelMeter.h"
+#include "Analysis/WaveformBuffer.h"
 
 class AssistedMixingProcessor : public juce::AudioProcessor
 {
@@ -50,6 +53,17 @@ public:
 
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
+    SpectrumAnalyzer& getPreEQAnalyzer()  { return preEQAnalyzer; }
+    SpectrumAnalyzer& getPostEQAnalyzer() { return postEQAnalyzer; }
+    LevelMeterData& getInputMeter()  { return inputMeter; }
+    LevelMeterData& getOutputMeter() { return outputMeter; }
+    CompressorDSP& getCompressor() { return compressor; }
+    ParametricEQ& getParametricEQ() { return parametricEQ; }
+    WaveformBuffer& getPreSatBuffer()  { return preSatBuffer; }
+    WaveformBuffer& getPostSatBuffer() { return postSatBuffer; }
+    WaveformBuffer& getDryRevBuffer()  { return dryRevBuffer; }
+    WaveformBuffer& getWetRevBuffer()  { return wetRevBuffer; }
+
 private:
     juce::AudioProcessorValueTreeState apvts;
 
@@ -59,6 +73,15 @@ private:
     Saturation saturation;
     StereoWidthDSP stereoWidth;
     ReverbSend reverbSend;
+
+    SpectrumAnalyzer preEQAnalyzer;
+    SpectrumAnalyzer postEQAnalyzer;
+    LevelMeterData inputMeter;
+    LevelMeterData outputMeter;
+    WaveformBuffer preSatBuffer;
+    WaveformBuffer postSatBuffer;
+    WaveformBuffer dryRevBuffer;
+    WaveformBuffer wetRevBuffer;
 
     std::atomic<float>* inputGainParam = nullptr;
     std::atomic<float>* outputGainParam = nullptr;
@@ -81,6 +104,8 @@ private:
     std::atomic<float>* satMixParam = nullptr;
     std::atomic<float>* stereoWidthParam = nullptr;
     std::atomic<float>* reverbSendParam = nullptr;
+    std::atomic<float>* reverbRoomSizeParam = nullptr;
+    std::atomic<float>* reverbDampingParam = nullptr;
     std::atomic<float>* mixAmountParam = nullptr;
     std::atomic<float>* bypassParam = nullptr;
 

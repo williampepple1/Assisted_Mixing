@@ -13,3 +13,7 @@ cmake_install.cmake
 Makefile
 *.sln
 *.vcxproj*
+
+# Installer outputs (keep installer/*.iss source)
+KingMixerInstaller.exe
+KingMixer_VST3.zip

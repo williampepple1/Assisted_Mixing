@@ -6,6 +6,7 @@ void ParametricEQ::prepare(const juce::dsp::ProcessSpec& spec)
     lowMidPeak.prepare(spec);
     highMidPeak.prepare(spec);
     highShelf.prepare(spec);
+    currentSampleRate = spec.sampleRate;
 }
 
 void ParametricEQ::process(juce::AudioBuffer<float>& buffer)
@@ -28,21 +29,45 @@ void ParametricEQ::updateBands(float lowFreq, float lowGain,
     if (sampleRate <= 0.0)
         return;
 
-    *lowShelf.state = *Coeffs::makeLowShelf(
-        sampleRate, lowFreq,
-        0.707f,
-        juce::Decibels::decibelsToGain(lowGain));
+    currentSampleRate = sampleRate;
 
-    *lowMidPeak.state = *Coeffs::makePeakFilter(
+    lowShelfCoeffs = Coeffs::makeLowShelf(
+        sampleRate, lowFreq, 0.707f,
+        juce::Decibels::decibelsToGain(lowGain));
+    *lowShelf.state = *lowShelfCoeffs;
+
+    lowMidPeakCoeffs = Coeffs::makePeakFilter(
         sampleRate, lowMidFreq, lowMidQ,
         juce::Decibels::decibelsToGain(lowMidGain));
+    *lowMidPeak.state = *lowMidPeakCoeffs;
 
-    *highMidPeak.state = *Coeffs::makePeakFilter(
+    highMidPeakCoeffs = Coeffs::makePeakFilter(
         sampleRate, highMidFreq, highMidQ,
         juce::Decibels::decibelsToGain(highMidGain));
+    *highMidPeak.state = *highMidPeakCoeffs;
 
-    *highShelf.state = *Coeffs::makeHighShelf(
-        sampleRate, highFreq,
-        0.707f,
+    highShelfCoeffs = Coeffs::makeHighShelf(
+        sampleRate, highFreq, 0.707f,
         juce::Decibels::decibelsToGain(highGain));
+    *highShelf.state = *highShelfCoeffs;
+}
+
+void ParametricEQ::getMagnitudeResponse(const double* frequencies, double* magnitudes, int numPoints, double sampleRate) const
+{
+    for (int i = 0; i < numPoints; ++i)
+        magnitudes[i] = 1.0;
+
+    if (sampleRate <= 0.0)
+        return;
+
+    auto multiplyMagnitudes = [&](Coeffs::Ptr c) {
+        if (c == nullptr) return;
+        for (int i = 0; i < numPoints; ++i)
+            magnitudes[i] *= c->getMagnitudeForFrequency(frequencies[i], sampleRate);
+    };
+
+    multiplyMagnitudes(lowShelfCoeffs);
+    multiplyMagnitudes(lowMidPeakCoeffs);
+    multiplyMagnitudes(highMidPeakCoeffs);
+    multiplyMagnitudes(highShelfCoeffs);
 }

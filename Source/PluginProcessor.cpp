@@ -28,6 +28,8 @@ AssistedMixingProcessor::AssistedMixingProcessor()
     satMixParam       = apvts.getRawParameterValue("satMix");
     stereoWidthParam  = apvts.getRawParameterValue("stereoWidth");
     reverbSendParam   = apvts.getRawParameterValue("reverbSend");
+    reverbRoomSizeParam = apvts.getRawParameterValue("reverbRoomSize");
+    reverbDampingParam  = apvts.getRawParameterValue("reverbDamping");
     mixAmountParam    = apvts.getRawParameterValue("mixAmount");
     bypassParam       = apvts.getRawParameterValue("bypass");
 }
@@ -58,6 +60,9 @@ void AssistedMixingProcessor::prepareToPlay(double sampleRate, int samplesPerBlo
     saturation.prepare(spec);
     stereoWidth.prepare(spec);
     reverbSend.prepare(spec);
+
+    preEQAnalyzer.setSampleRate(sampleRate);
+    postEQAnalyzer.setSampleRate(sampleRate);
 }
 
 void AssistedMixingProcessor::releaseResources() {}
@@ -85,12 +90,16 @@ void AssistedMixingProcessor::processBlock(juce::AudioBuffer<float>& buffer, juc
 
     juce::AudioBuffer<float> dryBuffer;
     if (mix < 1.0f)
-    {
         dryBuffer.makeCopyOf(buffer);
-    }
+
+    inputMeter.process(buffer);
 
     gainStage.setGainDB(inputGainParam->load());
     gainStage.process(buffer);
+
+    // Pre-EQ spectrum
+    if (buffer.getNumChannels() > 0)
+        preEQAnalyzer.pushSamples(buffer.getReadPointer(0), buffer.getNumSamples());
 
     parametricEQ.updateBands(
         eqLowFreqParam->load(), eqLowGainParam->load(),
@@ -100,21 +109,43 @@ void AssistedMixingProcessor::processBlock(juce::AudioBuffer<float>& buffer, juc
         getSampleRate());
     parametricEQ.process(buffer);
 
+    // Post-EQ spectrum
+    if (buffer.getNumChannels() > 0)
+        postEQAnalyzer.pushSamples(buffer.getReadPointer(0), buffer.getNumSamples());
+
     compressor.updateParameters(
         compThresholdParam->load(), compRatioParam->load(),
         compAttackParam->load(), compReleaseParam->load(),
         compMakeupParam->load());
     compressor.process(buffer);
 
+    // Pre-saturation waveform
+    if (buffer.getNumChannels() > 0)
+        preSatBuffer.pushSamples(buffer.getReadPointer(0), buffer.getNumSamples());
+
     saturation.setDrive(satDriveParam->load());
     saturation.setMix(satMixParam->load());
     saturation.process(buffer);
 
+    // Post-saturation waveform
+    if (buffer.getNumChannels() > 0)
+        postSatBuffer.pushSamples(buffer.getReadPointer(0), buffer.getNumSamples());
+
     stereoWidth.setWidth(stereoWidthParam->load());
     stereoWidth.process(buffer);
 
+    // Pre-reverb waveform
+    if (buffer.getNumChannels() > 0)
+        dryRevBuffer.pushSamples(buffer.getReadPointer(0), buffer.getNumSamples());
+
     reverbSend.setSendLevel(reverbSendParam->load());
+    reverbSend.setRoomSize(reverbRoomSizeParam->load());
+    reverbSend.setDamping(reverbDampingParam->load());
     reverbSend.process(buffer);
+
+    // Post-reverb waveform
+    if (buffer.getNumChannels() > 0)
+        wetRevBuffer.pushSamples(buffer.getReadPointer(0), buffer.getNumSamples());
 
     float outGainLinear = juce::Decibels::decibelsToGain(outputGainParam->load());
     buffer.applyGain(outGainLinear);
@@ -129,59 +160,40 @@ void AssistedMixingProcessor::processBlock(juce::AudioBuffer<float>& buffer, juc
                 wet[i] = dry[i] * (1.0f - mix) + wet[i] * mix;
         }
     }
+
+    outputMeter.process(buffer);
 }
 
 void AssistedMixingProcessor::applyRule(Genre genre, Instrument instrument)
 {
     MixRule rule = MixRuleDatabase::getRule(genre, instrument);
 
-    apvts.getParameter("inputGain")->setValueNotifyingHost(
-        apvts.getParameter("inputGain")->convertTo0to1(rule.inputGain));
-    apvts.getParameter("outputGain")->setValueNotifyingHost(
-        apvts.getParameter("outputGain")->convertTo0to1(rule.outputGain));
+    auto setParam = [&](const juce::String& id, float value) {
+        auto* p = apvts.getParameter(id);
+        p->setValueNotifyingHost(p->convertTo0to1(value));
+    };
 
-    apvts.getParameter("eqLowFreq")->setValueNotifyingHost(
-        apvts.getParameter("eqLowFreq")->convertTo0to1(rule.eqLowFreq));
-    apvts.getParameter("eqLowGain")->setValueNotifyingHost(
-        apvts.getParameter("eqLowGain")->convertTo0to1(rule.eqLowGain));
-    apvts.getParameter("eqLowMidFreq")->setValueNotifyingHost(
-        apvts.getParameter("eqLowMidFreq")->convertTo0to1(rule.eqLowMidFreq));
-    apvts.getParameter("eqLowMidGain")->setValueNotifyingHost(
-        apvts.getParameter("eqLowMidGain")->convertTo0to1(rule.eqLowMidGain));
-    apvts.getParameter("eqLowMidQ")->setValueNotifyingHost(
-        apvts.getParameter("eqLowMidQ")->convertTo0to1(rule.eqLowMidQ));
-    apvts.getParameter("eqHighMidFreq")->setValueNotifyingHost(
-        apvts.getParameter("eqHighMidFreq")->convertTo0to1(rule.eqHighMidFreq));
-    apvts.getParameter("eqHighMidGain")->setValueNotifyingHost(
-        apvts.getParameter("eqHighMidGain")->convertTo0to1(rule.eqHighMidGain));
-    apvts.getParameter("eqHighMidQ")->setValueNotifyingHost(
-        apvts.getParameter("eqHighMidQ")->convertTo0to1(rule.eqHighMidQ));
-    apvts.getParameter("eqHighFreq")->setValueNotifyingHost(
-        apvts.getParameter("eqHighFreq")->convertTo0to1(rule.eqHighFreq));
-    apvts.getParameter("eqHighGain")->setValueNotifyingHost(
-        apvts.getParameter("eqHighGain")->convertTo0to1(rule.eqHighGain));
-
-    apvts.getParameter("compThreshold")->setValueNotifyingHost(
-        apvts.getParameter("compThreshold")->convertTo0to1(rule.compThreshold));
-    apvts.getParameter("compRatio")->setValueNotifyingHost(
-        apvts.getParameter("compRatio")->convertTo0to1(rule.compRatio));
-    apvts.getParameter("compAttack")->setValueNotifyingHost(
-        apvts.getParameter("compAttack")->convertTo0to1(rule.compAttack));
-    apvts.getParameter("compRelease")->setValueNotifyingHost(
-        apvts.getParameter("compRelease")->convertTo0to1(rule.compRelease));
-    apvts.getParameter("compMakeup")->setValueNotifyingHost(
-        apvts.getParameter("compMakeup")->convertTo0to1(rule.compMakeup));
-
-    apvts.getParameter("satDrive")->setValueNotifyingHost(
-        apvts.getParameter("satDrive")->convertTo0to1(rule.satDrive));
-    apvts.getParameter("satMix")->setValueNotifyingHost(
-        apvts.getParameter("satMix")->convertTo0to1(rule.satMix));
-
-    apvts.getParameter("stereoWidth")->setValueNotifyingHost(
-        apvts.getParameter("stereoWidth")->convertTo0to1(rule.stereoWidth));
-
-    apvts.getParameter("reverbSend")->setValueNotifyingHost(
-        apvts.getParameter("reverbSend")->convertTo0to1(rule.reverbSend));
+    setParam("inputGain", rule.inputGain);
+    setParam("outputGain", rule.outputGain);
+    setParam("eqLowFreq", rule.eqLowFreq);
+    setParam("eqLowGain", rule.eqLowGain);
+    setParam("eqLowMidFreq", rule.eqLowMidFreq);
+    setParam("eqLowMidGain", rule.eqLowMidGain);
+    setParam("eqLowMidQ", rule.eqLowMidQ);
+    setParam("eqHighMidFreq", rule.eqHighMidFreq);
+    setParam("eqHighMidGain", rule.eqHighMidGain);
+    setParam("eqHighMidQ", rule.eqHighMidQ);
+    setParam("eqHighFreq", rule.eqHighFreq);
+    setParam("eqHighGain", rule.eqHighGain);
+    setParam("compThreshold", rule.compThreshold);
+    setParam("compRatio", rule.compRatio);
+    setParam("compAttack", rule.compAttack);
+    setParam("compRelease", rule.compRelease);
+    setParam("compMakeup", rule.compMakeup);
+    setParam("satDrive", rule.satDrive);
+    setParam("satMix", rule.satMix);
+    setParam("stereoWidth", rule.stereoWidth);
+    setParam("reverbSend", rule.reverbSend);
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout AssistedMixingProcessor::createParameterLayout()
@@ -206,7 +218,6 @@ juce::AudioProcessorValueTreeState::ParameterLayout AssistedMixingProcessor::cre
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         "inputGain", "Input Gain",
         juce::NormalisableRange<float>(-24.0f, 24.0f, 0.1f), 0.0f, "dB"));
-
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         "outputGain", "Output Gain",
         juce::NormalisableRange<float>(-24.0f, 24.0f, 0.1f), 0.0f, "dB"));
@@ -217,7 +228,6 @@ juce::AudioProcessorValueTreeState::ParameterLayout AssistedMixingProcessor::cre
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         "eqLowGain", "EQ Low Gain",
         juce::NormalisableRange<float>(-18.0f, 18.0f, 0.1f), 0.0f, "dB"));
-
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         "eqLowMidFreq", "EQ Low-Mid Freq",
         juce::NormalisableRange<float>(100.0f, 2000.0f, 1.0f, 0.5f), 400.0f, "Hz"));
@@ -227,7 +237,6 @@ juce::AudioProcessorValueTreeState::ParameterLayout AssistedMixingProcessor::cre
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         "eqLowMidQ", "EQ Low-Mid Q",
         juce::NormalisableRange<float>(0.1f, 10.0f, 0.01f, 0.5f), 1.0f));
-
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         "eqHighMidFreq", "EQ High-Mid Freq",
         juce::NormalisableRange<float>(500.0f, 8000.0f, 1.0f, 0.5f), 2500.0f, "Hz"));
@@ -237,7 +246,6 @@ juce::AudioProcessorValueTreeState::ParameterLayout AssistedMixingProcessor::cre
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         "eqHighMidQ", "EQ High-Mid Q",
         juce::NormalisableRange<float>(0.1f, 10.0f, 0.01f, 0.5f), 1.0f));
-
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         "eqHighFreq", "EQ High Freq",
         juce::NormalisableRange<float>(2000.0f, 20000.0f, 1.0f, 0.5f), 8000.0f, "Hz"));
@@ -275,6 +283,12 @@ juce::AudioProcessorValueTreeState::ParameterLayout AssistedMixingProcessor::cre
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         "reverbSend", "Reverb Send",
         juce::NormalisableRange<float>(-60.0f, 0.0f, 0.1f), -60.0f, "dB"));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "reverbRoomSize", "Room Size",
+        juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f), 0.5f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "reverbDamping", "Damping",
+        juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f), 0.5f));
 
     return { params.begin(), params.end() };
 }
