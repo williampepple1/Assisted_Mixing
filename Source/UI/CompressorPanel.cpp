@@ -27,7 +27,9 @@ CompressorPanel::~CompressorPanel() { stopTimer(); }
 
 void CompressorPanel::timerCallback()
 {
-    grHistory[static_cast<size_t>(grWritePos)] = comp.getGainReduction();
+    float rawGR = comp.getGainReduction();
+    displaySmoothedGR = displaySmoothedGR * 0.7f + rawGR * 0.3f;
+    grHistory[static_cast<size_t>(grWritePos)] = displaySmoothedGR;
     grWritePos = (grWritePos + 1) % kGRHistorySize;
     repaint();
 }
@@ -136,6 +138,34 @@ void CompressorPanel::drawTransferCurve(juce::Graphics& g, juce::Rectangle<int> 
     float threshX = area.getX() + threshNorm * (float)area.getWidth();
     g.setColour(t.accentWarm.withAlpha(0.5f));
     g.drawVerticalLine((int)threshX, (float)area.getY(), (float)area.getBottom());
+
+    // Live input level indicator dot on the transfer curve
+    float inDB = comp.getInputLevel();
+    if (inDB > -100.0f)
+    {
+        float mappedOutDB = (inDB < threshold) ? inDB : threshold + (inDB - threshold) / ratio;
+        float inNorm = (inDB + 60.0f) / 60.0f;
+        float outNorm = (mappedOutDB + 60.0f) / 60.0f;
+
+        float dotX = area.getX() + inNorm * (float)area.getWidth();
+        float dotY = (float)area.getBottom() - outNorm * (float)area.getHeight();
+        dotX = juce::jlimit((float)area.getX(), (float)area.getRight(), dotX);
+        dotY = juce::jlimit((float)area.getY(), (float)area.getBottom(), dotY);
+
+        // Draw a glow behind the dot
+        g.setColour(t.accentWarm.withAlpha(0.2f));
+        g.fillEllipse(dotX - 8.0f, dotY - 8.0f, 16.0f, 16.0f);
+
+        g.setColour(t.accentWarm);
+        g.fillEllipse(dotX - 4.0f, dotY - 4.0f, 8.0f, 8.0f);
+
+        // Horizontal reference line from the dot to the y-axis
+        g.setColour(t.accentWarm.withAlpha(0.25f));
+        g.drawHorizontalLine((int)dotY, (float)area.getX(), dotX);
+
+        // Vertical reference line from the dot to the x-axis
+        g.drawVerticalLine((int)dotX, dotY, (float)area.getBottom());
+    }
 
     g.setColour(t.textDim);
     g.setFont(9.0f);

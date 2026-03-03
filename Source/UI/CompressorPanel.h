@@ -27,6 +27,7 @@ private:
     static constexpr int kGRHistorySize = 256;
     std::array<float, kGRHistorySize> grHistory{};
     int grWritePos = 0;
+    float displaySmoothedGR = 0.0f;
 
     juce::Slider threshSlider, ratioSlider, attackSlider, releaseSlider, makeupSlider;
     juce::Label lblThresh{"","Threshold"}, lblRatio{"","Ratio"}, lblAttack{"","Attack"};

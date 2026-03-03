@@ -19,6 +19,10 @@ private:
     juce::dsp::Compressor<float> compressor;
     juce::dsp::Gain<float> makeupGain;
 
+    juce::AudioBuffer<float> preCompBuffer;
+    float smoothedGR = 0.0f;
+    float currentThreshold = -20.0f;
+
     std::atomic<float> gainReductionDB{ 0.0f };
     std::atomic<float> inputLevelDB{ -100.0f };
     std::atomic<float> outputLevelDB{ -100.0f };
