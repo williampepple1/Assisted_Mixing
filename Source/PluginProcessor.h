@@ -14,6 +14,7 @@
 #include "Analysis/SpectrumAnalyzer.h"
 #include "Analysis/LevelMeter.h"
 #include "Analysis/WaveformBuffer.h"
+#include "IPC/InstanceHub.h"
 
 class AssistedMixingProcessor : public juce::AudioProcessor
 {
@@ -67,6 +68,15 @@ public:
 
     int getThemeIndex() const { return themeIndex.load(); }
     void setThemeIndex(int idx) { themeIndex.store(idx); }
+
+    // IPC — inter-instance communication
+    int getInstanceSlotId() const { return instanceSlotId; }
+    bool isMasterBus() const { return masterBusMode.load(); }
+    void setMasterBusMode(bool isMaster);
+    juce::String getTrackName() const { return trackName; }
+    void setTrackName(const juce::String& name);
+    InstanceParamSnapshot buildParamSnapshot() const;
+    void applyParamSnapshot(const InstanceParamSnapshot& snap);
 
 private:
     juce::AudioProcessorValueTreeState apvts;
@@ -126,6 +136,12 @@ private:
     std::atomic<float>* bypassParam = nullptr;
 
     std::atomic<int> themeIndex{ 0 };
+
+    // IPC state
+    int instanceSlotId = -1;
+    std::atomic<bool> masterBusMode{ false };
+    juce::String trackName{ "Track" };
+    uint32_t lastMasterPushVersion = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AssistedMixingProcessor)
 };

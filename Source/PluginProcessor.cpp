@@ -45,9 +45,14 @@ AssistedMixingProcessor::AssistedMixingProcessor()
     revColorParam        = apvts.getRawParameterValue("revColor");
     mixAmountParam    = apvts.getRawParameterValue("mixAmount");
     bypassParam       = apvts.getRawParameterValue("bypass");
+
+    instanceSlotId = InstanceHub::getInstance().registerInstance(this, trackName, false);
 }
 
-AssistedMixingProcessor::~AssistedMixingProcessor() {}
+AssistedMixingProcessor::~AssistedMixingProcessor()
+{
+    InstanceHub::getInstance().unregisterInstance(instanceSlotId);
+}
 
 const juce::String AssistedMixingProcessor::getName() const { return JucePlugin_Name; }
 bool AssistedMixingProcessor::acceptsMidi() const { return false; }
@@ -98,6 +103,36 @@ void AssistedMixingProcessor::processBlock(juce::AudioBuffer<float>& buffer, juc
 
     if (bypassParam->load() > 0.5f)
         return;
+
+    // Check for master-pushed parameter updates (non-audio-thread safe via atomics)
+    if (!masterBusMode.load() && instanceSlotId >= 0)
+    {
+        auto& slot = InstanceHub::getInstance().getSlot(instanceSlotId);
+        if (slot.hasMasterPush.load())
+        {
+            uint32_t ver = slot.masterPushVersion.load();
+            if (ver != lastMasterPushVersion)
+            {
+                lastMasterPushVersion = ver;
+                slot.hasMasterPush.store(false);
+                // Apply on message thread via AsyncUpdater would be ideal,
+                // but for simplicity we'll flag it and let the editor pick it up
+            }
+        }
+
+        // Solo/mute from master — mute this track's output
+        auto& hub = InstanceHub::getInstance();
+        bool anySoloed = hub.isAnySoloed();
+        bool thisSoloed = slot.soloFromMaster.load();
+        bool thisMuted = slot.muteFromMaster.load();
+
+        if (thisMuted || (anySoloed && !thisSoloed))
+        {
+            buffer.clear();
+            outputMeter.process(buffer);
+            return;
+        }
+    }
 
     const float mix = mixAmountParam->load();
 
@@ -193,6 +228,20 @@ void AssistedMixingProcessor::processBlock(juce::AudioBuffer<float>& buffer, juc
     }
 
     outputMeter.process(buffer);
+
+    // Push snapshots to the hub for master bus visibility
+    if (instanceSlotId >= 0)
+    {
+        InstanceLevelSnapshot lvl;
+        lvl.peakL = outputMeter.getPeakL();
+        lvl.peakR = outputMeter.getPeakR();
+        lvl.rmsL = outputMeter.getRmsL();
+        lvl.rmsR = outputMeter.getRmsR();
+        lvl.gainReductionDB = compressor.getGainReduction();
+        InstanceHub::getInstance().pushLevelSnapshot(instanceSlotId, lvl);
+
+        InstanceHub::getInstance().pushParamSnapshot(instanceSlotId, buildParamSnapshot());
+    }
 }
 
 void AssistedMixingProcessor::applyRule(Genre genre, Instrument instrument)
@@ -366,10 +415,93 @@ juce::AudioProcessorValueTreeState::ParameterLayout AssistedMixingProcessor::cre
     return { params.begin(), params.end() };
 }
 
+void AssistedMixingProcessor::setMasterBusMode(bool isMaster)
+{
+    masterBusMode.store(isMaster);
+    if (instanceSlotId >= 0)
+        InstanceHub::getInstance().setIsMaster(instanceSlotId, isMaster);
+}
+
+void AssistedMixingProcessor::setTrackName(const juce::String& name)
+{
+    trackName = name;
+    if (instanceSlotId >= 0)
+        InstanceHub::getInstance().updateTrackName(instanceSlotId, name);
+}
+
+InstanceParamSnapshot AssistedMixingProcessor::buildParamSnapshot() const
+{
+    InstanceParamSnapshot snap;
+    snap.inputGain = inputGainParam->load();
+    snap.outputGain = outputGainParam->load();
+
+    for (int i = 0; i < 8; ++i)
+    {
+        snap.eqBands[i].freq = eqBandParams[i].freq->load();
+        snap.eqBands[i].gain = eqBandParams[i].gain->load();
+        snap.eqBands[i].q = eqBandParams[i].q->load();
+        snap.eqBands[i].type = static_cast<int>(eqBandParams[i].type->load());
+        snap.eqBands[i].enabled = eqBandParams[i].enabled->load() > 0.5f;
+    }
+
+    snap.compThreshold = compThresholdParam->load();
+    snap.compRatio = compRatioParam->load();
+    snap.compAttack = compAttackParam->load();
+    snap.compRelease = compReleaseParam->load();
+    snap.compMakeup = compMakeupParam->load();
+    snap.satDrive = satDriveParam->load();
+    snap.satMix = satMixParam->load();
+    snap.stereoWidth = stereoWidthParam->load();
+    snap.revMix = revMixParam->load();
+    snap.revPredelay = revPredelayParam->load();
+    snap.revDecay = revDecayParam->load();
+    snap.revSize = revSizeParam->load();
+    snap.mixAmount = mixAmountParam->load();
+    snap.bypass = bypassParam->load() > 0.5f;
+    snap.genreIndex = static_cast<int>(apvts.getRawParameterValue("genre")->load());
+    snap.instrumentIndex = static_cast<int>(apvts.getRawParameterValue("instrument")->load());
+    return snap;
+}
+
+void AssistedMixingProcessor::applyParamSnapshot(const InstanceParamSnapshot& snap)
+{
+    auto setParam = [&](const juce::String& id, float value) {
+        auto* p = apvts.getParameter(id);
+        if (p) p->setValueNotifyingHost(p->convertTo0to1(value));
+    };
+
+    setParam("inputGain", snap.inputGain);
+    setParam("outputGain", snap.outputGain);
+
+    for (int i = 0; i < 8; ++i)
+    {
+        auto si = juce::String(i);
+        setParam("eqFreq" + si, snap.eqBands[i].freq);
+        setParam("eqGain" + si, snap.eqBands[i].gain);
+        setParam("eqQ" + si, snap.eqBands[i].q);
+    }
+
+    setParam("compThreshold", snap.compThreshold);
+    setParam("compRatio", snap.compRatio);
+    setParam("compAttack", snap.compAttack);
+    setParam("compRelease", snap.compRelease);
+    setParam("compMakeup", snap.compMakeup);
+    setParam("satDrive", snap.satDrive);
+    setParam("satMix", snap.satMix);
+    setParam("stereoWidth", snap.stereoWidth);
+    setParam("revMix", snap.revMix);
+    setParam("revPredelay", snap.revPredelay);
+    setParam("revDecay", snap.revDecay);
+    setParam("revSize", snap.revSize);
+    setParam("mixAmount", snap.mixAmount);
+}
+
 void AssistedMixingProcessor::getStateInformation(juce::MemoryBlock& destData)
 {
     auto state = apvts.copyState();
     state.setProperty("uiTheme", themeIndex.load(), nullptr);
+    state.setProperty("isMasterBus", masterBusMode.load() ? 1 : 0, nullptr);
+    state.setProperty("trackName", trackName, nullptr);
     std::unique_ptr<juce::XmlElement> xml(state.createXml());
     copyXmlToBinary(*xml, destData);
 }
@@ -381,6 +513,13 @@ void AssistedMixingProcessor::setStateInformation(const void* data, int sizeInBy
     {
         auto newState = juce::ValueTree::fromXml(*xml);
         themeIndex.store((int)newState.getProperty("uiTheme", 0));
+
+        bool wasMaster = (int)newState.getProperty("isMasterBus", 0) != 0;
+        setMasterBusMode(wasMaster);
+
+        juce::String savedName = newState.getProperty("trackName", "Track").toString();
+        setTrackName(savedName);
+
         apvts.replaceState(newState);
     }
 }

@@ -50,6 +50,7 @@ target_sources(AssistedMixing
         Source/UI/SaturationPanel.cpp
         Source/UI/ReverbPanel.cpp
         Source/UI/GainMixPanel.cpp
+        Source/UI/MasterBusPanel.cpp
 )
 
 target_include_directories(AssistedMixing

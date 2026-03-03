@@ -39,8 +39,21 @@ AssistedMixingEditor::AssistedMixingEditor(AssistedMixingProcessor& p)
     themeBox.setSelectedId(savedTheme + 1, juce::dontSendNotification);
     applyTheme(savedTheme);
 
+    // Master bus toggle
+    masterBusToggle.setToggleState(processorRef.isMasterBus(), juce::dontSendNotification);
+    masterBusToggle.addListener(this);
+    addAndMakeVisible(masterBusToggle);
+
+    // Track name label (editable)
+    trackNameLabel.setText(processorRef.getTrackName(), juce::dontSendNotification);
+    trackNameLabel.setEditable(true);
+    trackNameLabel.setJustificationType(juce::Justification::centred);
+    trackNameLabel.setFont(juce::Font(11.0f));
+    trackNameLabel.addListener(this);
+    addAndMakeVisible(trackNameLabel);
+
     // Tab buttons
-    juce::StringArray tabNames = { "EQ", "COMP", "SAT", "REVERB", "GAIN/MIX" };
+    juce::StringArray tabNames = { "EQ", "COMP", "SAT", "REVERB", "GAIN/MIX", "MASTER" };
     for (int i = 0; i < NumTabs; ++i)
     {
         tabButtons[(size_t)i].setButtonText(tabNames[i]);
@@ -71,6 +84,10 @@ AssistedMixingEditor::AssistedMixingEditor(AssistedMixingProcessor& p)
         processorRef.getInputMeter(), processorRef.getOutputMeter());
     addAndMakeVisible(gainMixPanel.get());
 
+    masterBusPanel = std::make_unique<MasterBusPanel>(apvts);
+    addAndMakeVisible(masterBusPanel.get());
+
+    rebuildTabBar();
     showTab(TabEQ);
 
     setSize(900, 650);
@@ -98,6 +115,23 @@ void AssistedMixingEditor::comboBoxChanged(juce::ComboBox* box)
     }
 }
 
+void AssistedMixingEditor::labelTextChanged(juce::Label* label)
+{
+    if (label == &trackNameLabel)
+    {
+        processorRef.setTrackName(trackNameLabel.getText());
+    }
+}
+
+void AssistedMixingEditor::rebuildTabBar()
+{
+    bool isMaster = processorRef.isMasterBus();
+    tabButtons[TabMaster].setVisible(isMaster);
+
+    if (!isMaster && activeTab == TabMaster)
+        showTab(TabEQ);
+}
+
 void AssistedMixingEditor::showTab(int index)
 {
     activeTab = index;
@@ -107,6 +141,7 @@ void AssistedMixingEditor::showTab(int index)
     satPanel->setVisible(index == TabSat);
     reverbPanel->setVisible(index == TabReverb);
     gainMixPanel->setVisible(index == TabGainMix);
+    masterBusPanel->setVisible(index == TabMaster);
 
     for (int i = 0; i < NumTabs; ++i)
         tabButtons[(size_t)i].setToggleState(i == index, juce::dontSendNotification);
@@ -121,6 +156,17 @@ void AssistedMixingEditor::buttonClicked(juce::Button* button)
         auto genreIdx = static_cast<int>(processorRef.getAPVTS().getRawParameterValue("genre")->load());
         auto instrIdx = static_cast<int>(processorRef.getAPVTS().getRawParameterValue("instrument")->load());
         processorRef.applyRule(static_cast<Genre>(genreIdx), static_cast<Instrument>(instrIdx));
+        return;
+    }
+
+    if (button == &masterBusToggle)
+    {
+        processorRef.setMasterBusMode(masterBusToggle.getToggleState());
+        rebuildTabBar();
+        if (masterBusToggle.getToggleState())
+            showTab(TabMaster);
+        resized();
+        repaint();
         return;
     }
 
@@ -153,14 +199,33 @@ void AssistedMixingEditor::paint(juce::Graphics& g)
     g.setColour(t.tabInactive);
     g.fillRect(0, tabY, getWidth(), kTabBarHeight);
 
-    // Active tab highlight
-    int tabW = getWidth() / NumTabs;
-    g.setColour(t.tabActive);
-    g.fillRect(activeTab * tabW, tabY, tabW, kTabBarHeight);
+    // Count visible tabs for layout
+    int visibleTabs = 0;
+    for (int i = 0; i < NumTabs; ++i)
+        if (tabButtons[i].isVisible()) visibleTabs++;
 
-    // Active tab accent line
-    g.setColour(t.accent);
-    g.fillRect(activeTab * tabW, tabY + kTabBarHeight - 3, tabW, 3);
+    if (visibleTabs > 0)
+    {
+        int tabW = getWidth() / visibleTabs;
+
+        // Find which visible tab position the active tab is at
+        int activeVisiblePos = 0;
+        int pos = 0;
+        for (int i = 0; i < NumTabs; ++i)
+        {
+            if (tabButtons[i].isVisible())
+            {
+                if (i == activeTab) activeVisiblePos = pos;
+                pos++;
+            }
+        }
+
+        g.setColour(t.tabActive);
+        g.fillRect(activeVisiblePos * tabW, tabY, tabW, kTabBarHeight);
+
+        g.setColour(t.accent);
+        g.fillRect(activeVisiblePos * tabW, tabY + kTabBarHeight - 3, tabW, 3);
+    }
 }
 
 void AssistedMixingEditor::resized()
@@ -170,19 +235,36 @@ void AssistedMixingEditor::resized()
     // Header
     auto header = area.removeFromTop(kHeaderHeight);
     header.removeFromLeft(160);
-    genreBox.setBounds(header.removeFromLeft(120).reduced(4, 12));
-    instrumentBox.setBounds(header.removeFromLeft(140).reduced(4, 12));
-    applyRuleButton.setBounds(header.removeFromLeft(100).reduced(4, 12));
+    genreBox.setBounds(header.removeFromLeft(110).reduced(4, 12));
+    instrumentBox.setBounds(header.removeFromLeft(120).reduced(4, 12));
+    applyRuleButton.setBounds(header.removeFromLeft(80).reduced(4, 12));
+
+    // Track name (editable label)
+    trackNameLabel.setBounds(header.removeFromLeft(90).reduced(4, 14));
+
+    // Master toggle
+    masterBusToggle.setBounds(header.removeFromLeft(70).reduced(2, 14));
 
     // Theme selector on the right side of the header
-    auto themeArea = header.removeFromRight(130).reduced(4, 12);
+    auto themeArea = header.removeFromRight(120).reduced(4, 12);
     themeBox.setBounds(themeArea);
 
     // Tab bar
     auto tabBar = area.removeFromTop(kTabBarHeight);
-    int tabW = tabBar.getWidth() / NumTabs;
+
+    int visibleTabs = 0;
     for (int i = 0; i < NumTabs; ++i)
-        tabButtons[(size_t)i].setBounds(tabBar.removeFromLeft(tabW));
+        if (tabButtons[i].isVisible()) visibleTabs++;
+
+    if (visibleTabs > 0)
+    {
+        int tabW = tabBar.getWidth() / visibleTabs;
+        for (int i = 0; i < NumTabs; ++i)
+        {
+            if (tabButtons[i].isVisible())
+                tabButtons[(size_t)i].setBounds(tabBar.removeFromLeft(tabW));
+        }
+    }
 
     // Panel content
     auto panelArea = area;
@@ -191,4 +273,5 @@ void AssistedMixingEditor::resized()
     satPanel->setBounds(panelArea);
     reverbPanel->setBounds(panelArea);
     gainMixPanel->setBounds(panelArea);
+    masterBusPanel->setBounds(panelArea);
 }
