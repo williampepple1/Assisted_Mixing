@@ -12,6 +12,8 @@ void Saturation::process(juce::AudioBuffer<float>& buffer)
         return;
 
     const float driveGain = 1.0f + drive * 9.0f;
+    float denom = std::tanh(driveGain);
+    if (std::abs(denom) < 1e-6f) return;
 
     for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
     {
@@ -19,7 +21,7 @@ void Saturation::process(juce::AudioBuffer<float>& buffer)
         for (int i = 0; i < buffer.getNumSamples(); ++i)
         {
             float dry = data[i];
-            float wet = std::tanh(dry * driveGain) / std::tanh(driveGain);
+            float wet = std::tanh(dry * driveGain) / denom;
             data[i] = dry * (1.0f - mix) + wet * mix;
         }
     }
@@ -27,7 +29,7 @@ void Saturation::process(juce::AudioBuffer<float>& buffer)
 
 void Saturation::setDrive(float drivePercent)
 {
-    drive = drivePercent / 100.0f;
+    drive = juce::jlimit(0.0f, 100.0f, drivePercent) / 100.0f;
 }
 
 void Saturation::setMix(float mixPercent)

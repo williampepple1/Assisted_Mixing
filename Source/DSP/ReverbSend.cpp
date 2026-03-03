@@ -54,29 +54,31 @@ void ReverbSend::updateReverbParams()
 
 void ReverbSend::updateFilters()
 {
+    if (sampleRate <= 0.0) return;
+
     auto hiCutCoeffs = juce::dsp::IIR::Coefficients<float>::makeLowPass(sampleRate, juce::jlimit(200.0f, 20000.0f, eqHighCutHz));
-    *highCutFilterL.coefficients = *hiCutCoeffs;
-    *highCutFilterR.coefficients = *hiCutCoeffs;
+    highCutFilterL.coefficients = hiCutCoeffs;
+    highCutFilterR.coefficients = hiCutCoeffs;
 
     auto loCutCoeffs = juce::dsp::IIR::Coefficients<float>::makeHighPass(sampleRate, juce::jlimit(5.0f, 2000.0f, eqLowCutHz));
-    *lowCutFilterL.coefficients = *loCutCoeffs;
-    *lowCutFilterR.coefficients = *loCutCoeffs;
+    lowCutFilterL.coefficients = loCutCoeffs;
+    lowCutFilterR.coefficients = loCutCoeffs;
 
     auto dampHiCoeffs = juce::dsp::IIR::Coefficients<float>::makeLowPass(sampleRate, juce::jlimit(200.0f, 20000.0f, dampHiFreq));
-    *dampHiFilterL.coefficients = *dampHiCoeffs;
-    *dampHiFilterR.coefficients = *dampHiCoeffs;
+    dampHiFilterL.coefficients = dampHiCoeffs;
+    dampHiFilterR.coefficients = dampHiCoeffs;
 
     float bassGain = juce::Decibels::decibelsToGain((dampBassMult - 1.0f) * 6.0f);
     auto dampLoCoeffs = juce::dsp::IIR::Coefficients<float>::makeLowShelf(sampleRate, juce::jlimit(20.0f, 2000.0f, dampBassFreq), 0.707f, bassGain);
-    *dampLoFilterL.coefficients = *dampLoCoeffs;
-    *dampLoFilterR.coefficients = *dampLoCoeffs;
+    dampLoFilterL.coefficients = dampLoCoeffs;
+    dampLoFilterR.coefficients = dampLoCoeffs;
 }
 
 void ReverbSend::process(juce::AudioBuffer<float>& buffer)
 {
     const int numSamples = buffer.getNumSamples();
     const int numChannels = buffer.getNumChannels();
-    if (numChannels < 1) return;
+    if (numChannels < 1 || numSamples == 0 || sampleRate <= 0.0) return;
 
     updateReverbParams();
     updateFilters();

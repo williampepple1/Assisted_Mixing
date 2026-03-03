@@ -91,6 +91,7 @@ public:
     void setIsMaster(int id, bool m)
     {
         if (!isValid(id)) return;
+        const juce::SpinLock::ScopedLockType lock(spinLock);
         isMasterFlags[id] = m;
     }
 
@@ -106,7 +107,7 @@ public:
     void pushLevelSnapshot(int id, const InstanceLevelSnapshot& snap)
     {
         if (!isValid(id)) return;
-        // Levels are all floats written atomically by one thread, read by UI — safe enough
+        const juce::SpinLock::ScopedLockType lock(spinLock);
         levelSnaps[id] = snap;
     }
 
@@ -192,6 +193,7 @@ public:
     InstanceLevelSnapshot getLevels(int id) const
     {
         if (!isValid(id)) return {};
+        const juce::SpinLock::ScopedLockType lock(spinLock);
         return levelSnaps[id];
     }
 

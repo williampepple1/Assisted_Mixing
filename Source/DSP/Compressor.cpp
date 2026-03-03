@@ -9,6 +9,8 @@ void CompressorDSP::prepare(const juce::dsp::ProcessSpec& spec)
 
 void CompressorDSP::process(juce::AudioBuffer<float>& buffer)
 {
+    if (buffer.getNumSamples() == 0) return;
+
     float peakIn = 0.0f;
     for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
     {

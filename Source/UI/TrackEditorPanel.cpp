@@ -202,8 +202,8 @@ void TrackEditorPanel::pushToHub()
     currentSnap.revModDepth = (float)revModDepthKnob.getValue();
     currentSnap.revEqHighCut = (float)revEqHighCutKnob.getValue();
     currentSnap.revEqLowCut = (float)revEqLowCutKnob.getValue();
-    currentSnap.revMode = revModeBox.getSelectedId() - 1;
-    currentSnap.revColor = revColorBox.getSelectedId() - 1;
+    currentSnap.revMode = juce::jmax(0, revModeBox.getSelectedId() - 1);
+    currentSnap.revColor = juce::jmax(0, revColorBox.getSelectedId() - 1);
 
     InstanceHub::getInstance().pushParamsToTrack(selectedSlotId, currentSnap);
 }

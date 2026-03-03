@@ -2,6 +2,8 @@
 
 void WaveformBuffer::pushSamples(const float* data, int numSamples)
 {
+    if (!data || numSamples <= 0) return;
+
     int wp = writePos.load();
     for (int i = 0; i < numSamples; ++i)
     {

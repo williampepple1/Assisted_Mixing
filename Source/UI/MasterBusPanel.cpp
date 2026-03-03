@@ -99,7 +99,7 @@ void MasterBusPanel::paint(juce::Graphics& g)
     }
 }
 
-void MasterBusPanel::drawTrackStrip(juce::Graphics& g, const TrackStrip& strip)
+void MasterBusPanel::drawTrackStrip(juce::Graphics& g, TrackStrip& strip)
 {
     auto& t = getThemeFrom(this);
     auto area = strip.bounds;
@@ -195,7 +195,7 @@ void MasterBusPanel::drawTrackStrip(juce::Graphics& g, const TrackStrip& strip)
 
     // Fader
     auto faderRect = juce::Rectangle<int>(area.getX() + 8, y, area.getWidth() - 16, 16);
-    const_cast<TrackStrip&>(strip).faderArea = faderRect;
+    strip.faderArea = faderRect;
     g.setColour(t.knobFill);
     g.fillRoundedRectangle(faderRect.toFloat(), 3.0f);
 
@@ -213,8 +213,8 @@ void MasterBusPanel::drawTrackStrip(juce::Graphics& g, const TrackStrip& strip)
     int btnW = (area.getWidth() - 20) / 2;
     auto soloR = juce::Rectangle<int>(area.getX() + 6, y, btnW, 18);
     auto muteR = juce::Rectangle<int>(area.getX() + 10 + btnW, y, btnW, 18);
-    const_cast<TrackStrip&>(strip).soloBtn = soloR;
-    const_cast<TrackStrip&>(strip).muteBtn = muteR;
+    strip.soloBtn = soloR;
+    strip.muteBtn = muteR;
 
     g.setColour(strip.solo ? juce::Colour(0xffffd700) : t.knobFill);
     g.fillRoundedRectangle(soloR.toFloat(), 3.0f);
@@ -316,8 +316,10 @@ void MasterBusPanel::mouseDrag(const juce::MouseEvent& e)
         return;
 
     auto& strip = strips[draggingFaderStrip];
+    float faderW = (float)strip.faderArea.getWidth();
+    if (faderW <= 0.0f) return;
     float norm = juce::jlimit(0.0f, 1.0f,
-        (float)(e.getPosition().x - strip.faderArea.getX()) / (float)strip.faderArea.getWidth());
+        (float)(e.getPosition().x - strip.faderArea.getX()) / faderW);
     float newGainDB = norm * 48.0f - 24.0f;
 
     InstanceParamSnapshot snap = strip.params;

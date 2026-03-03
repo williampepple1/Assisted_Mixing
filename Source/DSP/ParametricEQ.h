@@ -41,7 +41,11 @@ public:
 
     double getCurrentSampleRate() const { return currentSampleRate; }
 
-    const EQBandState& getBandState(int index) const { return bandStates[static_cast<size_t>(index)]; }
+    const EQBandState& getBandState(int index) const
+    {
+        int i = juce::jlimit(0, kMaxBands - 1, index);
+        return bandStates[static_cast<size_t>(i)];
+    }
 
     // Backward-compat wrapper used by processBlock
     void updateBands(float lowFreq, float lowGain,

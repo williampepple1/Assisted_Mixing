@@ -410,10 +410,13 @@ void EQPanel::showBandContextMenu(int bandIdx)
     menu.addSeparator();
     menu.addItem(10, "Reset to 0 dB");
 
-    menu.showMenuAsync(juce::PopupMenu::Options(), [this, bandIdx, si](int result) {
+    auto safeThis = juce::Component::SafePointer<EQPanel>(this);
+    menu.showMenuAsync(juce::PopupMenu::Options(), [safeThis, bandIdx, si](int result) {
+        if (safeThis == nullptr) return;
+        auto& apvtsRef = safeThis->apvts;
         if (result == 1)
         {
-            if (auto* p = apvts.getParameter("eqOn" + si))
+            if (auto* p = apvtsRef.getParameter("eqOn" + si))
             {
                 bool current = p->getValue() > 0.5f;
                 p->setValueNotifyingHost(current ? 0.0f : 1.0f);
@@ -421,12 +424,12 @@ void EQPanel::showBandContextMenu(int bandIdx)
         }
         else if (result == 10)
         {
-            if (auto* p = apvts.getParameter("eqGain" + si))
+            if (auto* p = apvtsRef.getParameter("eqGain" + si))
                 p->setValueNotifyingHost(p->convertTo0to1(0.0f));
         }
         else if (result >= 100 && result < 107)
         {
-            if (auto* p = apvts.getParameter("eqType" + si))
+            if (auto* p = apvtsRef.getParameter("eqType" + si))
                 p->setValueNotifyingHost(p->convertTo0to1((float)(result - 100)));
         }
     });

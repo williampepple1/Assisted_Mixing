@@ -141,6 +141,7 @@ void AssistedMixingEditor::rebuildTabBar()
 
 void AssistedMixingEditor::showTab(int index)
 {
+    if (index < 0 || index >= NumTabs) return;
     activeTab = index;
 
     eqPanel->setVisible(index == TabEQ);
@@ -160,9 +161,14 @@ void AssistedMixingEditor::buttonClicked(juce::Button* button)
 {
     if (button == &applyRuleButton)
     {
-        auto genreIdx = static_cast<int>(processorRef.getAPVTS().getRawParameterValue("genre")->load());
-        auto instrIdx = static_cast<int>(processorRef.getAPVTS().getRawParameterValue("instrument")->load());
-        processorRef.applyRule(static_cast<Genre>(genreIdx), static_cast<Instrument>(instrIdx));
+        auto* genreParam = processorRef.getAPVTS().getRawParameterValue("genre");
+        auto* instrParam = processorRef.getAPVTS().getRawParameterValue("instrument");
+        if (genreParam && instrParam)
+        {
+            auto genreIdx = static_cast<int>(genreParam->load());
+            auto instrIdx = static_cast<int>(instrParam->load());
+            processorRef.applyRule(static_cast<Genre>(genreIdx), static_cast<Instrument>(instrIdx));
+        }
         return;
     }
 

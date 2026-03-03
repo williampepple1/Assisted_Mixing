@@ -47,6 +47,8 @@ AssistedMixingProcessor::AssistedMixingProcessor()
     bypassParam       = apvts.getRawParameterValue("bypass");
 
     instanceSlotId = InstanceHub::getInstance().registerInstance(trackName, false);
+    if (instanceSlotId < 0)
+        DBG("KingMixer: InstanceHub full, could not register instance");
 }
 
 AssistedMixingProcessor::~AssistedMixingProcessor()
@@ -101,7 +103,10 @@ void AssistedMixingProcessor::processBlock(juce::AudioBuffer<float>& buffer, juc
 {
     juce::ScopedNoDenormals noDenormals;
 
-    if (bypassParam->load() > 0.5f)
+    if (!inputGainParam || !outputGainParam || !mixAmountParam)
+        return;
+
+    if (bypassParam && bypassParam->load() > 0.5f)
         return;
 
     // Check for master-pushed parameter updates
@@ -249,8 +254,8 @@ void AssistedMixingProcessor::applyRule(Genre genre, Instrument instrument)
     MixRule rule = MixRuleDatabase::getRule(genre, instrument);
 
     auto setParam = [&](const juce::String& id, float value) {
-        auto* p = apvts.getParameter(id);
-        p->setValueNotifyingHost(p->convertTo0to1(value));
+        if (auto* p = apvts.getParameter(id))
+            p->setValueNotifyingHost(p->convertTo0to1(value));
     };
 
     setParam("inputGain", rule.inputGain);
@@ -471,8 +476,10 @@ InstanceParamSnapshot AssistedMixingProcessor::buildParamSnapshot() const
     snap.revColor = static_cast<int>(revColorParam->load());
     snap.mixAmount = mixAmountParam->load();
     snap.bypass = bypassParam->load() > 0.5f;
-    snap.genreIndex = static_cast<int>(apvts.getRawParameterValue("genre")->load());
-    snap.instrumentIndex = static_cast<int>(apvts.getRawParameterValue("instrument")->load());
+    if (auto* gp = apvts.getRawParameterValue("genre"))
+        snap.genreIndex = static_cast<int>(gp->load());
+    if (auto* ip = apvts.getRawParameterValue("instrument"))
+        snap.instrumentIndex = static_cast<int>(ip->load());
     return snap;
 }
 

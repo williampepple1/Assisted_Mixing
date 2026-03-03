@@ -8,6 +8,8 @@ SpectrumAnalyzer::SpectrumAnalyzer()
 
 void SpectrumAnalyzer::pushSamples(const float* data, int numSamples)
 {
+    if (!data || numSamples <= 0) return;
+
     for (int i = 0; i < numSamples; ++i)
     {
         fifo[static_cast<size_t>(fifoIndex)] = data[i];
@@ -43,9 +45,10 @@ bool SpectrumAnalyzer::getNextBlock(std::array<float, scopeSize>& output)
         fftIndex = juce::jmax(fftIndex, 0);
 
         float magnitude = fftData[static_cast<size_t>(fftIndex)];
+        if (!std::isfinite(magnitude)) magnitude = 0.0f;
         float level = juce::jlimit(minDB, maxDB,
             juce::Decibels::gainToDecibels(magnitude / static_cast<float>(fftSize)));
-        output[static_cast<size_t>(i)] = (level - minDB) / rangeDB;
+        output[static_cast<size_t>(i)] = juce::jlimit(0.0f, 1.0f, (level - minDB) / rangeDB);
     }
     return true;
 }

@@ -38,7 +38,7 @@ private:
         juce::Rectangle<int> nameArea;
     };
 
-    void drawTrackStrip(juce::Graphics& g, const TrackStrip& strip);
+    void drawTrackStrip(juce::Graphics& g, TrackStrip& strip);
     void drawMeter(juce::Graphics& g, juce::Rectangle<int> area, float peak, float rms, const KingMixerTheme& t);
 
     int getStripIndexAt(juce::Point<int> pos) const;
