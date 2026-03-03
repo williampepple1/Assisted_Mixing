@@ -1,7 +1,7 @@
 #include "CustomLookAndFeel.h"
 
 CustomLookAndFeel::CustomLookAndFeel()
-    : theme(KingMixerThemes::midnight())
+    : theme(KingMixerThemes::charcoal())
 {
     applyThemeColours();
 }

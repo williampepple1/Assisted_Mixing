@@ -2,11 +2,46 @@
 
 void ParametricEQ::prepare(const juce::dsp::ProcessSpec& spec)
 {
-    lowShelf.prepare(spec);
-    lowMidPeak.prepare(spec);
-    highMidPeak.prepare(spec);
-    highShelf.prepare(spec);
     currentSampleRate = spec.sampleRate;
+    for (auto& b : bands)
+        b.filter.prepare(spec);
+
+    // Initialize default band states
+    bandStates[0] = { 80.0f,   0.0f, 0.707f, (int)EQFilterType::LowShelf,  true };
+    bandStates[1] = { 250.0f,  0.0f, 1.0f,   (int)EQFilterType::Peak,      true };
+    bandStates[2] = { 700.0f,  0.0f, 1.0f,   (int)EQFilterType::Peak,      true };
+    bandStates[3] = { 1500.0f, 0.0f, 1.0f,   (int)EQFilterType::Peak,      true };
+    bandStates[4] = { 3000.0f, 0.0f, 1.0f,   (int)EQFilterType::Peak,      true };
+    bandStates[5] = { 5000.0f, 0.0f, 1.0f,   (int)EQFilterType::Peak,      true };
+    bandStates[6] = { 8000.0f, 0.0f, 1.0f,   (int)EQFilterType::Peak,      true };
+    bandStates[7] = { 12000.0f,0.0f, 0.707f, (int)EQFilterType::HighShelf, true };
+
+    for (int i = 0; i < kMaxBands; ++i)
+    {
+        auto c = makeCoeffs(static_cast<EQFilterType>(bandStates[i].filterType),
+                            spec.sampleRate, bandStates[i].frequency, bandStates[i].gainDB, bandStates[i].q);
+        if (c) { bands[i].coeffs = c; *bands[i].filter.state = *c; }
+        bands[i].active = bandStates[i].enabled;
+    }
+}
+
+ParametricEQ::Coeffs::Ptr ParametricEQ::makeCoeffs(EQFilterType type, double sr, float freq, float gain, float q) const
+{
+    float f = juce::jlimit(20.0f, (float)(sr * 0.499), freq);
+    float qVal = juce::jmax(0.05f, q);
+    float linGain = juce::Decibels::decibelsToGain(gain);
+
+    switch (type)
+    {
+        case EQFilterType::Peak:      return Coeffs::makePeakFilter(sr, f, qVal, linGain);
+        case EQFilterType::LowShelf:  return Coeffs::makeLowShelf(sr, f, qVal, linGain);
+        case EQFilterType::HighShelf: return Coeffs::makeHighShelf(sr, f, qVal, linGain);
+        case EQFilterType::LowCut:    return Coeffs::makeHighPass(sr, f, qVal);
+        case EQFilterType::HighCut:   return Coeffs::makeLowPass(sr, f, qVal);
+        case EQFilterType::BandPass:  return Coeffs::makeBandPass(sr, f, qVal);
+        case EQFilterType::Notch:     return Coeffs::makeNotch(sr, f, qVal);
+        default:                      return Coeffs::makePeakFilter(sr, f, qVal, linGain);
+    }
 }
 
 void ParametricEQ::process(juce::AudioBuffer<float>& buffer)
@@ -14,10 +49,33 @@ void ParametricEQ::process(juce::AudioBuffer<float>& buffer)
     juce::dsp::AudioBlock<float> block(buffer);
     juce::dsp::ProcessContextReplacing<float> context(block);
 
-    lowShelf.process(context);
-    lowMidPeak.process(context);
-    highMidPeak.process(context);
-    highShelf.process(context);
+    for (int i = 0; i < kMaxBands; ++i)
+    {
+        if (bands[i].active && bands[i].coeffs)
+            bands[i].filter.process(context);
+    }
+}
+
+void ParametricEQ::updateBand(int index, float freq, float gain, float q, int type, bool enabled, double sampleRate)
+{
+    if (index < 0 || index >= kMaxBands || sampleRate <= 0.0)
+        return;
+
+    currentSampleRate = sampleRate;
+    auto& st = bandStates[static_cast<size_t>(index)];
+    st.frequency = freq;
+    st.gainDB = gain;
+    st.q = q;
+    st.filterType = type;
+    st.enabled = enabled;
+
+    auto c = makeCoeffs(static_cast<EQFilterType>(type), sampleRate, freq, gain, q);
+    if (c)
+    {
+        bands[static_cast<size_t>(index)].coeffs = c;
+        *bands[static_cast<size_t>(index)].filter.state = *c;
+    }
+    bands[static_cast<size_t>(index)].active = enabled;
 }
 
 void ParametricEQ::updateBands(float lowFreq, float lowGain,
@@ -26,30 +84,10 @@ void ParametricEQ::updateBands(float lowFreq, float lowGain,
                                 float highFreq, float highGain,
                                 double sampleRate)
 {
-    if (sampleRate <= 0.0)
-        return;
-
-    currentSampleRate = sampleRate;
-
-    lowShelfCoeffs = Coeffs::makeLowShelf(
-        sampleRate, lowFreq, 0.707f,
-        juce::Decibels::decibelsToGain(lowGain));
-    *lowShelf.state = *lowShelfCoeffs;
-
-    lowMidPeakCoeffs = Coeffs::makePeakFilter(
-        sampleRate, lowMidFreq, lowMidQ,
-        juce::Decibels::decibelsToGain(lowMidGain));
-    *lowMidPeak.state = *lowMidPeakCoeffs;
-
-    highMidPeakCoeffs = Coeffs::makePeakFilter(
-        sampleRate, highMidFreq, highMidQ,
-        juce::Decibels::decibelsToGain(highMidGain));
-    *highMidPeak.state = *highMidPeakCoeffs;
-
-    highShelfCoeffs = Coeffs::makeHighShelf(
-        sampleRate, highFreq, 0.707f,
-        juce::Decibels::decibelsToGain(highGain));
-    *highShelf.state = *highShelfCoeffs;
+    updateBand(0, lowFreq, lowGain, 0.707f, (int)EQFilterType::LowShelf, true, sampleRate);
+    updateBand(1, lowMidFreq, lowMidGain, lowMidQ, (int)EQFilterType::Peak, true, sampleRate);
+    updateBand(2, highMidFreq, highMidGain, highMidQ, (int)EQFilterType::Peak, true, sampleRate);
+    updateBand(3, highFreq, highGain, 0.707f, (int)EQFilterType::HighShelf, true, sampleRate);
 }
 
 void ParametricEQ::getMagnitudeResponse(const double* frequencies, double* magnitudes, int numPoints, double sampleRate) const
@@ -60,14 +98,26 @@ void ParametricEQ::getMagnitudeResponse(const double* frequencies, double* magni
     if (sampleRate <= 0.0)
         return;
 
-    auto multiplyMagnitudes = [&](Coeffs::Ptr c) {
-        if (c == nullptr) return;
+    for (int b = 0; b < kMaxBands; ++b)
+    {
+        if (!bands[b].active || !bands[b].coeffs)
+            continue;
         for (int i = 0; i < numPoints; ++i)
-            magnitudes[i] *= c->getMagnitudeForFrequency(frequencies[i], sampleRate);
-    };
+            magnitudes[i] *= bands[b].coeffs->getMagnitudeForFrequency(frequencies[i], sampleRate);
+    }
+}
 
-    multiplyMagnitudes(lowShelfCoeffs);
-    multiplyMagnitudes(lowMidPeakCoeffs);
-    multiplyMagnitudes(highMidPeakCoeffs);
-    multiplyMagnitudes(highShelfCoeffs);
+void ParametricEQ::getBandMagnitudeResponse(int bandIndex, const double* frequencies, double* magnitudes, int numPoints, double sampleRate) const
+{
+    for (int i = 0; i < numPoints; ++i)
+        magnitudes[i] = 1.0;
+
+    if (bandIndex < 0 || bandIndex >= kMaxBands || sampleRate <= 0.0)
+        return;
+
+    if (!bands[bandIndex].active || !bands[bandIndex].coeffs)
+        return;
+
+    for (int i = 0; i < numPoints; ++i)
+        magnitudes[i] = bands[bandIndex].coeffs->getMagnitudeForFrequency(frequencies[i], sampleRate);
 }

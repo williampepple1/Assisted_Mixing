@@ -18,6 +18,9 @@ public:
     void resized() override;
     void mouseDown(const juce::MouseEvent& e) override;
     void mouseDrag(const juce::MouseEvent& e) override;
+    void mouseUp(const juce::MouseEvent& e) override;
+    void mouseDoubleClick(const juce::MouseEvent& e) override;
+    void mouseWheelMove(const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel) override;
 
 private:
     void timerCallback() override;
@@ -25,14 +28,21 @@ private:
     void drawSpectrum(juce::Graphics& g, juce::Rectangle<int> area,
                       const std::array<float, SpectrumAnalyzer::scopeSize>& data,
                       juce::Colour colour);
-    void drawEQCurve(juce::Graphics& g, juce::Rectangle<int> area);
+    void drawCompositeCurve(juce::Graphics& g, juce::Rectangle<int> area);
+    void drawBandCurve(juce::Graphics& g, juce::Rectangle<int> area, int bandIdx, juce::Colour colour);
     void drawBandNodes(juce::Graphics& g, juce::Rectangle<int> area);
+    void drawBandInfo(juce::Graphics& g, juce::Rectangle<int> area);
+    void showBandContextMenu(int bandIdx);
 
     float freqToX(float freq, float width) const;
     float xToFreq(float x, float width) const;
     float dbToY(float dB, float height) const;
+    float yToDB(float y, float height) const;
 
     int findNearestBand(float x, float y, juce::Rectangle<int> area);
+    juce::Rectangle<int> getVisArea() const;
+    juce::Colour getBandColour(int idx) const;
+    juce::String getFilterTypeName(int type) const;
 
     juce::AudioProcessorValueTreeState& apvts;
     SpectrumAnalyzer& preAnalyzer;
@@ -42,18 +52,9 @@ private:
     std::array<float, SpectrumAnalyzer::scopeSize> preData{};
     std::array<float, SpectrumAnalyzer::scopeSize> postData{};
 
-    juce::Slider eqLowFreq, eqLowGain;
-    juce::Slider eqLowMidFreq, eqLowMidGain, eqLowMidQ;
-    juce::Slider eqHighMidFreq, eqHighMidGain, eqHighMidQ;
-    juce::Slider eqHighFreq, eqHighGain;
-    juce::Label lblLowFreq{"","Lo F"}, lblLowGain{"","Lo G"};
-    juce::Label lblLMFreq{"","LM F"}, lblLMGain{"","LM G"}, lblLMQ{"","LM Q"};
-    juce::Label lblHMFreq{"","HM F"}, lblHMGain{"","HM G"}, lblHMQ{"","HM Q"};
-    juce::Label lblHiFreq{"","Hi F"}, lblHiGain{"","Hi G"};
-
-    std::vector<std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>> attachments;
-
     int dragBand = -1;
+    int selectedBand = -1;
+    int hoveredBand = -1;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(EQPanel)
 };

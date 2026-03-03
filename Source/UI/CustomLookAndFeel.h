@@ -116,18 +116,18 @@ namespace KingMixerThemes
     {
         switch (index)
         {
-            case 0: return midnight();
-            case 1: return charcoal();
+            case 0: return charcoal();
+            case 1: return midnight();
             case 2: return mocha();
             case 3: return royalGold();
             case 4: return arctic();
-            default: return midnight();
+            default: return charcoal();
         }
     }
 
     inline juce::StringArray getNames()
     {
-        return { "Midnight", "Charcoal", "Mocha", "Royal Gold", "Arctic" };
+        return { "Charcoal", "Midnight", "Mocha", "Royal Gold", "Arctic" };
     }
 
     inline int getCount() { return 5; }
@@ -171,6 +171,6 @@ inline const KingMixerTheme& getThemeFrom(juce::Component* comp)
     if (auto* lnf = dynamic_cast<CustomLookAndFeel*>(&comp->getLookAndFeel()))
         return lnf->getTheme();
 
-    static KingMixerTheme fallback = KingMixerThemes::midnight();
+    static KingMixerTheme fallback = KingMixerThemes::charcoal();
     return fallback;
 }

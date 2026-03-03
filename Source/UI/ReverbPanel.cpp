@@ -172,6 +172,7 @@ void ReverbPanel::drawModeColorBar(juce::Graphics& g, juce::Rectangle<int> area)
 void ReverbPanel::paint(juce::Graphics& g)
 {
     auto& t = getThemeFrom(this);
+    g.fillAll(t.panelBg);
     auto area = getLocalBounds();
 
     // Bottom status bar with mode/color

@@ -89,16 +89,14 @@ private:
 
     std::atomic<float>* inputGainParam = nullptr;
     std::atomic<float>* outputGainParam = nullptr;
-    std::atomic<float>* eqLowFreqParam = nullptr;
-    std::atomic<float>* eqLowGainParam = nullptr;
-    std::atomic<float>* eqLowMidFreqParam = nullptr;
-    std::atomic<float>* eqLowMidGainParam = nullptr;
-    std::atomic<float>* eqLowMidQParam = nullptr;
-    std::atomic<float>* eqHighMidFreqParam = nullptr;
-    std::atomic<float>* eqHighMidGainParam = nullptr;
-    std::atomic<float>* eqHighMidQParam = nullptr;
-    std::atomic<float>* eqHighFreqParam = nullptr;
-    std::atomic<float>* eqHighGainParam = nullptr;
+    struct EQBandParams {
+        std::atomic<float>* freq = nullptr;
+        std::atomic<float>* gain = nullptr;
+        std::atomic<float>* q = nullptr;
+        std::atomic<float>* type = nullptr;
+        std::atomic<float>* enabled = nullptr;
+    };
+    std::array<EQBandParams, 8> eqBandParams;
     std::atomic<float>* compThresholdParam = nullptr;
     std::atomic<float>* compRatioParam = nullptr;
     std::atomic<float>* compAttackParam = nullptr;

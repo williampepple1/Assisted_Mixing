@@ -9,16 +9,15 @@ AssistedMixingProcessor::AssistedMixingProcessor()
 {
     inputGainParam    = apvts.getRawParameterValue("inputGain");
     outputGainParam   = apvts.getRawParameterValue("outputGain");
-    eqLowFreqParam    = apvts.getRawParameterValue("eqLowFreq");
-    eqLowGainParam    = apvts.getRawParameterValue("eqLowGain");
-    eqLowMidFreqParam = apvts.getRawParameterValue("eqLowMidFreq");
-    eqLowMidGainParam = apvts.getRawParameterValue("eqLowMidGain");
-    eqLowMidQParam    = apvts.getRawParameterValue("eqLowMidQ");
-    eqHighMidFreqParam = apvts.getRawParameterValue("eqHighMidFreq");
-    eqHighMidGainParam = apvts.getRawParameterValue("eqHighMidGain");
-    eqHighMidQParam   = apvts.getRawParameterValue("eqHighMidQ");
-    eqHighFreqParam   = apvts.getRawParameterValue("eqHighFreq");
-    eqHighGainParam   = apvts.getRawParameterValue("eqHighGain");
+    for (int i = 0; i < 8; ++i)
+    {
+        auto si = juce::String(i);
+        eqBandParams[i].freq    = apvts.getRawParameterValue("eqFreq" + si);
+        eqBandParams[i].gain    = apvts.getRawParameterValue("eqGain" + si);
+        eqBandParams[i].q       = apvts.getRawParameterValue("eqQ" + si);
+        eqBandParams[i].type    = apvts.getRawParameterValue("eqType" + si);
+        eqBandParams[i].enabled = apvts.getRawParameterValue("eqOn" + si);
+    }
     compThresholdParam = apvts.getRawParameterValue("compThreshold");
     compRatioParam    = apvts.getRawParameterValue("compRatio");
     compAttackParam   = apvts.getRawParameterValue("compAttack");
@@ -115,12 +114,16 @@ void AssistedMixingProcessor::processBlock(juce::AudioBuffer<float>& buffer, juc
     if (buffer.getNumChannels() > 0)
         preEQAnalyzer.pushSamples(buffer.getReadPointer(0), buffer.getNumSamples());
 
-    parametricEQ.updateBands(
-        eqLowFreqParam->load(), eqLowGainParam->load(),
-        eqLowMidFreqParam->load(), eqLowMidGainParam->load(), eqLowMidQParam->load(),
-        eqHighMidFreqParam->load(), eqHighMidGainParam->load(), eqHighMidQParam->load(),
-        eqHighFreqParam->load(), eqHighGainParam->load(),
-        getSampleRate());
+    for (int i = 0; i < 8; ++i)
+    {
+        parametricEQ.updateBand(i,
+            eqBandParams[i].freq->load(),
+            eqBandParams[i].gain->load(),
+            eqBandParams[i].q->load(),
+            static_cast<int>(eqBandParams[i].type->load()),
+            eqBandParams[i].enabled->load() > 0.5f,
+            getSampleRate());
+    }
     parametricEQ.process(buffer);
 
     // Post-EQ spectrum
@@ -203,16 +206,20 @@ void AssistedMixingProcessor::applyRule(Genre genre, Instrument instrument)
 
     setParam("inputGain", rule.inputGain);
     setParam("outputGain", rule.outputGain);
-    setParam("eqLowFreq", rule.eqLowFreq);
-    setParam("eqLowGain", rule.eqLowGain);
-    setParam("eqLowMidFreq", rule.eqLowMidFreq);
-    setParam("eqLowMidGain", rule.eqLowMidGain);
-    setParam("eqLowMidQ", rule.eqLowMidQ);
-    setParam("eqHighMidFreq", rule.eqHighMidFreq);
-    setParam("eqHighMidGain", rule.eqHighMidGain);
-    setParam("eqHighMidQ", rule.eqHighMidQ);
-    setParam("eqHighFreq", rule.eqHighFreq);
-    setParam("eqHighGain", rule.eqHighGain);
+    // Map 4 legacy rule bands to first 4 of the 8 bands
+    setParam("eqFreq0", rule.eqLowFreq);
+    setParam("eqGain0", rule.eqLowGain);
+    setParam("eqFreq1", rule.eqLowMidFreq);
+    setParam("eqGain1", rule.eqLowMidGain);
+    setParam("eqQ1", rule.eqLowMidQ);
+    setParam("eqFreq2", rule.eqHighMidFreq);
+    setParam("eqGain2", rule.eqHighMidGain);
+    setParam("eqQ2", rule.eqHighMidQ);
+    setParam("eqFreq3", rule.eqHighFreq);
+    setParam("eqGain3", rule.eqHighGain);
+    // Reset bands 4-7 to flat
+    for (int i = 4; i < 8; ++i)
+        setParam("eqGain" + juce::String(i), 0.0f);
     setParam("compThreshold", rule.compThreshold);
     setParam("compRatio", rule.compRatio);
     setParam("compAttack", rule.compAttack);
@@ -253,36 +260,28 @@ juce::AudioProcessorValueTreeState::ParameterLayout AssistedMixingProcessor::cre
         "outputGain", "Output Gain",
         juce::NormalisableRange<float>(-24.0f, 24.0f, 0.1f), 0.0f, "dB"));
 
-    params.push_back(std::make_unique<juce::AudioParameterFloat>(
-        "eqLowFreq", "EQ Low Freq",
-        juce::NormalisableRange<float>(20.0f, 500.0f, 1.0f, 0.5f), 80.0f, "Hz"));
-    params.push_back(std::make_unique<juce::AudioParameterFloat>(
-        "eqLowGain", "EQ Low Gain",
-        juce::NormalisableRange<float>(-18.0f, 18.0f, 0.1f), 0.0f, "dB"));
-    params.push_back(std::make_unique<juce::AudioParameterFloat>(
-        "eqLowMidFreq", "EQ Low-Mid Freq",
-        juce::NormalisableRange<float>(100.0f, 2000.0f, 1.0f, 0.5f), 400.0f, "Hz"));
-    params.push_back(std::make_unique<juce::AudioParameterFloat>(
-        "eqLowMidGain", "EQ Low-Mid Gain",
-        juce::NormalisableRange<float>(-18.0f, 18.0f, 0.1f), 0.0f, "dB"));
-    params.push_back(std::make_unique<juce::AudioParameterFloat>(
-        "eqLowMidQ", "EQ Low-Mid Q",
-        juce::NormalisableRange<float>(0.1f, 10.0f, 0.01f, 0.5f), 1.0f));
-    params.push_back(std::make_unique<juce::AudioParameterFloat>(
-        "eqHighMidFreq", "EQ High-Mid Freq",
-        juce::NormalisableRange<float>(500.0f, 8000.0f, 1.0f, 0.5f), 2500.0f, "Hz"));
-    params.push_back(std::make_unique<juce::AudioParameterFloat>(
-        "eqHighMidGain", "EQ High-Mid Gain",
-        juce::NormalisableRange<float>(-18.0f, 18.0f, 0.1f), 0.0f, "dB"));
-    params.push_back(std::make_unique<juce::AudioParameterFloat>(
-        "eqHighMidQ", "EQ High-Mid Q",
-        juce::NormalisableRange<float>(0.1f, 10.0f, 0.01f, 0.5f), 1.0f));
-    params.push_back(std::make_unique<juce::AudioParameterFloat>(
-        "eqHighFreq", "EQ High Freq",
-        juce::NormalisableRange<float>(2000.0f, 20000.0f, 1.0f, 0.5f), 8000.0f, "Hz"));
-    params.push_back(std::make_unique<juce::AudioParameterFloat>(
-        "eqHighGain", "EQ High Gain",
-        juce::NormalisableRange<float>(-18.0f, 18.0f, 0.1f), 0.0f, "dB"));
+    // 8-band EQ
+    float defaultFreqs[] = { 80.0f, 250.0f, 700.0f, 1500.0f, 3000.0f, 5000.0f, 8000.0f, 12000.0f };
+    int defaultTypes[] = { 1, 0, 0, 0, 0, 0, 0, 2 }; // LowShelf, Peak x6, HighShelf
+    for (int i = 0; i < 8; ++i)
+    {
+        auto si = juce::String(i);
+        params.push_back(std::make_unique<juce::AudioParameterFloat>(
+            "eqFreq" + si, "EQ Freq " + si,
+            juce::NormalisableRange<float>(20.0f, 20000.0f, 0.1f, 0.25f), defaultFreqs[i], "Hz"));
+        params.push_back(std::make_unique<juce::AudioParameterFloat>(
+            "eqGain" + si, "EQ Gain " + si,
+            juce::NormalisableRange<float>(-24.0f, 24.0f, 0.1f), 0.0f, "dB"));
+        params.push_back(std::make_unique<juce::AudioParameterFloat>(
+            "eqQ" + si, "EQ Q " + si,
+            juce::NormalisableRange<float>(0.05f, 30.0f, 0.01f, 0.4f), (i == 0 || i == 7) ? 0.707f : 1.0f));
+        params.push_back(std::make_unique<juce::AudioParameterChoice>(
+            "eqType" + si, "EQ Type " + si,
+            juce::StringArray{ "Peak", "Low Shelf", "High Shelf", "Low Cut", "High Cut", "Band Pass", "Notch" },
+            defaultTypes[i]));
+        params.push_back(std::make_unique<juce::AudioParameterBool>(
+            "eqOn" + si, "EQ On " + si, true));
+    }
 
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         "compThreshold", "Comp Threshold",
