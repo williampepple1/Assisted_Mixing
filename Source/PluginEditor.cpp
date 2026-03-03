@@ -97,6 +97,17 @@ AssistedMixingEditor::AssistedMixingEditor(AssistedMixingProcessor& p)
 AssistedMixingEditor::~AssistedMixingEditor()
 {
     stopTimer();
+
+    masterBusPanel.reset();
+    gainMixPanel.reset();
+    reverbPanel.reset();
+    satPanel.reset();
+    compPanel.reset();
+    eqPanel.reset();
+
+    genreAttach.reset();
+    instrumentAttach.reset();
+
     setLookAndFeel(nullptr);
 }
 

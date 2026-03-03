@@ -80,6 +80,8 @@ void AssistedMixingProcessor::prepareToPlay(double sampleRate, int samplesPerBlo
     stereoWidth.prepare(spec);
     reverbSend.prepare(spec);
 
+    dryBuffer.setSize(getTotalNumOutputChannels(), samplesPerBlock);
+
     preEQAnalyzer.setSampleRate(sampleRate);
     postEQAnalyzer.setSampleRate(sampleRate);
 }
@@ -136,9 +138,13 @@ void AssistedMixingProcessor::processBlock(juce::AudioBuffer<float>& buffer, juc
 
     const float mix = mixAmountParam->load();
 
-    juce::AudioBuffer<float> dryBuffer;
     if (mix < 1.0f)
-        dryBuffer.makeCopyOf(buffer);
+    {
+        if (dryBuffer.getNumChannels() < buffer.getNumChannels() || dryBuffer.getNumSamples() < buffer.getNumSamples())
+            dryBuffer.setSize(buffer.getNumChannels(), buffer.getNumSamples(), false, false, true);
+        for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
+            dryBuffer.copyFrom(ch, 0, buffer, ch, 0, buffer.getNumSamples());
+    }
 
     inputMeter.process(buffer);
 
@@ -151,12 +157,15 @@ void AssistedMixingProcessor::processBlock(juce::AudioBuffer<float>& buffer, juc
 
     for (int i = 0; i < 8; ++i)
     {
+        auto& bp = eqBandParams[i];
+        if (!bp.freq || !bp.gain || !bp.q || !bp.type || !bp.enabled)
+            continue;
         parametricEQ.updateBand(i,
-            eqBandParams[i].freq->load(),
-            eqBandParams[i].gain->load(),
-            eqBandParams[i].q->load(),
-            static_cast<int>(eqBandParams[i].type->load()),
-            eqBandParams[i].enabled->load() > 0.5f,
+            bp.freq->load(),
+            bp.gain->load(),
+            bp.q->load(),
+            static_cast<int>(bp.type->load()),
+            bp.enabled->load() > 0.5f,
             getSampleRate());
     }
     parametricEQ.process(buffer);
@@ -165,48 +174,51 @@ void AssistedMixingProcessor::processBlock(juce::AudioBuffer<float>& buffer, juc
     if (buffer.getNumChannels() > 0)
         postEQAnalyzer.pushSamples(buffer.getReadPointer(0), buffer.getNumSamples());
 
-    compressor.updateParameters(
-        compThresholdParam->load(), compRatioParam->load(),
-        compAttackParam->load(), compReleaseParam->load(),
-        compMakeupParam->load());
+    if (compThresholdParam && compRatioParam && compAttackParam && compReleaseParam && compMakeupParam)
+    {
+        compressor.updateParameters(
+            compThresholdParam->load(), compRatioParam->load(),
+            compAttackParam->load(), compReleaseParam->load(),
+            compMakeupParam->load());
+    }
     compressor.process(buffer);
 
     // Pre-saturation waveform
     if (buffer.getNumChannels() > 0)
         preSatBuffer.pushSamples(buffer.getReadPointer(0), buffer.getNumSamples());
 
-    saturation.setDrive(satDriveParam->load());
-    saturation.setMix(satMixParam->load());
+    if (satDriveParam) saturation.setDrive(satDriveParam->load());
+    if (satMixParam) saturation.setMix(satMixParam->load());
     saturation.process(buffer);
 
     // Post-saturation waveform
     if (buffer.getNumChannels() > 0)
         postSatBuffer.pushSamples(buffer.getReadPointer(0), buffer.getNumSamples());
 
-    stereoWidth.setWidth(stereoWidthParam->load());
+    if (stereoWidthParam) stereoWidth.setWidth(stereoWidthParam->load());
     stereoWidth.process(buffer);
 
     // Pre-reverb waveform
     if (buffer.getNumChannels() > 0)
         dryRevBuffer.pushSamples(buffer.getReadPointer(0), buffer.getNumSamples());
 
-    reverbSend.setMix(revMixParam->load());
-    reverbSend.setPredelay(revPredelayParam->load());
-    reverbSend.setDecay(revDecayParam->load());
-    reverbSend.setDampHighFreq(revDampHiFreqParam->load());
-    reverbSend.setDampHighShelf(revDampHiShelfParam->load());
-    reverbSend.setDampBassFreq(revDampBassFreqParam->load());
-    reverbSend.setDampBassMult(revDampBassMultParam->load());
-    reverbSend.setSize(revSizeParam->load());
-    reverbSend.setAttack(revAttackParam->load());
-    reverbSend.setEarlyDiffusion(revEarlyDiffParam->load());
-    reverbSend.setLateDiffusion(revLateDiffParam->load());
-    reverbSend.setModRate(revModRateParam->load());
-    reverbSend.setModDepth(revModDepthParam->load());
-    reverbSend.setEqHighCut(revEqHighCutParam->load());
-    reverbSend.setEqLowCut(revEqLowCutParam->load());
-    reverbSend.setMode(static_cast<int>(revModeParam->load()));
-    reverbSend.setColor(static_cast<int>(revColorParam->load()));
+    if (revMixParam) reverbSend.setMix(revMixParam->load());
+    if (revPredelayParam) reverbSend.setPredelay(revPredelayParam->load());
+    if (revDecayParam) reverbSend.setDecay(revDecayParam->load());
+    if (revDampHiFreqParam) reverbSend.setDampHighFreq(revDampHiFreqParam->load());
+    if (revDampHiShelfParam) reverbSend.setDampHighShelf(revDampHiShelfParam->load());
+    if (revDampBassFreqParam) reverbSend.setDampBassFreq(revDampBassFreqParam->load());
+    if (revDampBassMultParam) reverbSend.setDampBassMult(revDampBassMultParam->load());
+    if (revSizeParam) reverbSend.setSize(revSizeParam->load());
+    if (revAttackParam) reverbSend.setAttack(revAttackParam->load());
+    if (revEarlyDiffParam) reverbSend.setEarlyDiffusion(revEarlyDiffParam->load());
+    if (revLateDiffParam) reverbSend.setLateDiffusion(revLateDiffParam->load());
+    if (revModRateParam) reverbSend.setModRate(revModRateParam->load());
+    if (revModDepthParam) reverbSend.setModDepth(revModDepthParam->load());
+    if (revEqHighCutParam) reverbSend.setEqHighCut(revEqHighCutParam->load());
+    if (revEqLowCutParam) reverbSend.setEqLowCut(revEqLowCutParam->load());
+    if (revModeParam) reverbSend.setMode(static_cast<int>(revModeParam->load()));
+    if (revColorParam) reverbSend.setColor(static_cast<int>(revColorParam->load()));
     reverbSend.process(buffer);
 
     // Post-reverb waveform
@@ -428,7 +440,10 @@ void AssistedMixingProcessor::setMasterBusMode(bool isMaster)
 
 void AssistedMixingProcessor::setTrackName(const juce::String& name)
 {
-    trackName = name;
+    {
+        const juce::SpinLock::ScopedLockType lock(trackNameLock);
+        trackName = name;
+    }
     if (instanceSlotId >= 0)
         InstanceHub::getInstance().updateTrackName(instanceSlotId, name);
 }
@@ -442,45 +457,51 @@ void AssistedMixingProcessor::updateTrackProperties(const TrackProperties& prope
 InstanceParamSnapshot AssistedMixingProcessor::buildParamSnapshot() const
 {
     InstanceParamSnapshot snap;
-    snap.inputGain = inputGainParam->load();
-    snap.outputGain = outputGainParam->load();
+
+    auto safeLoad = [](const std::atomic<float>* p, float fallback = 0.0f) {
+        return p ? p->load() : fallback;
+    };
+
+    snap.inputGain = safeLoad(inputGainParam);
+    snap.outputGain = safeLoad(outputGainParam);
 
     for (int i = 0; i < 8; ++i)
     {
-        snap.eqBands[i].freq = eqBandParams[i].freq->load();
-        snap.eqBands[i].gain = eqBandParams[i].gain->load();
-        snap.eqBands[i].q = eqBandParams[i].q->load();
-        snap.eqBands[i].type = static_cast<int>(eqBandParams[i].type->load());
-        snap.eqBands[i].enabled = eqBandParams[i].enabled->load() > 0.5f;
+        auto& bp = eqBandParams[i];
+        snap.eqBands[i].freq = safeLoad(bp.freq, 1000.0f);
+        snap.eqBands[i].gain = safeLoad(bp.gain);
+        snap.eqBands[i].q = safeLoad(bp.q, 1.0f);
+        snap.eqBands[i].type = static_cast<int>(safeLoad(bp.type));
+        snap.eqBands[i].enabled = safeLoad(bp.enabled, 1.0f) > 0.5f;
     }
 
-    snap.compThreshold = compThresholdParam->load();
-    snap.compRatio = compRatioParam->load();
-    snap.compAttack = compAttackParam->load();
-    snap.compRelease = compReleaseParam->load();
-    snap.compMakeup = compMakeupParam->load();
-    snap.satDrive = satDriveParam->load();
-    snap.satMix = satMixParam->load();
-    snap.stereoWidth = stereoWidthParam->load();
-    snap.revMix = revMixParam->load();
-    snap.revPredelay = revPredelayParam->load();
-    snap.revDecay = revDecayParam->load();
-    snap.revSize = revSizeParam->load();
-    snap.revDampHiFreq = revDampHiFreqParam->load();
-    snap.revDampHiShelf = revDampHiShelfParam->load();
-    snap.revDampBassFreq = revDampBassFreqParam->load();
-    snap.revDampBassMult = revDampBassMultParam->load();
-    snap.revAttack = revAttackParam->load();
-    snap.revEarlyDiff = revEarlyDiffParam->load();
-    snap.revLateDiff = revLateDiffParam->load();
-    snap.revModRate = revModRateParam->load();
-    snap.revModDepth = revModDepthParam->load();
-    snap.revEqHighCut = revEqHighCutParam->load();
-    snap.revEqLowCut = revEqLowCutParam->load();
-    snap.revMode = static_cast<int>(revModeParam->load());
-    snap.revColor = static_cast<int>(revColorParam->load());
-    snap.mixAmount = mixAmountParam->load();
-    snap.bypass = bypassParam->load() > 0.5f;
+    snap.compThreshold = safeLoad(compThresholdParam, -20.0f);
+    snap.compRatio = safeLoad(compRatioParam, 2.0f);
+    snap.compAttack = safeLoad(compAttackParam, 10.0f);
+    snap.compRelease = safeLoad(compReleaseParam, 100.0f);
+    snap.compMakeup = safeLoad(compMakeupParam);
+    snap.satDrive = safeLoad(satDriveParam);
+    snap.satMix = safeLoad(satMixParam, 50.0f);
+    snap.stereoWidth = safeLoad(stereoWidthParam);
+    snap.revMix = safeLoad(revMixParam);
+    snap.revPredelay = safeLoad(revPredelayParam);
+    snap.revDecay = safeLoad(revDecayParam, 0.1f);
+    snap.revSize = safeLoad(revSizeParam);
+    snap.revDampHiFreq = safeLoad(revDampHiFreqParam, 20000.0f);
+    snap.revDampHiShelf = safeLoad(revDampHiShelfParam);
+    snap.revDampBassFreq = safeLoad(revDampBassFreqParam, 20.0f);
+    snap.revDampBassMult = safeLoad(revDampBassMultParam, 1.0f);
+    snap.revAttack = safeLoad(revAttackParam);
+    snap.revEarlyDiff = safeLoad(revEarlyDiffParam);
+    snap.revLateDiff = safeLoad(revLateDiffParam);
+    snap.revModRate = safeLoad(revModRateParam, 0.01f);
+    snap.revModDepth = safeLoad(revModDepthParam);
+    snap.revEqHighCut = safeLoad(revEqHighCutParam, 20000.0f);
+    snap.revEqLowCut = safeLoad(revEqLowCutParam, 5.0f);
+    snap.revMode = static_cast<int>(safeLoad(revModeParam));
+    snap.revColor = static_cast<int>(safeLoad(revColorParam));
+    snap.mixAmount = safeLoad(mixAmountParam);
+    snap.bypass = safeLoad(bypassParam) > 0.5f;
     if (auto* gp = apvts.getRawParameterValue("genre"))
         snap.genreIndex = static_cast<int>(gp->load());
     if (auto* ip = apvts.getRawParameterValue("instrument"))
@@ -552,7 +573,10 @@ void AssistedMixingProcessor::getStateInformation(juce::MemoryBlock& destData)
     auto state = apvts.copyState();
     state.setProperty("uiTheme", themeIndex.load(), nullptr);
     state.setProperty("isMasterBus", masterBusMode.load() ? 1 : 0, nullptr);
-    state.setProperty("trackName", trackName, nullptr);
+    {
+        const juce::SpinLock::ScopedLockType lock(trackNameLock);
+        state.setProperty("trackName", trackName, nullptr);
+    }
     std::unique_ptr<juce::XmlElement> xml(state.createXml());
     copyXmlToBinary(*xml, destData);
 }

@@ -166,20 +166,23 @@ public:
     std::vector<TrackView> getTrackViews() const
     {
         std::vector<TrackView> views;
-        const juce::SpinLock::ScopedLockType lock(spinLock);
-        for (int i = 0; i < kMaxInstances; ++i)
+        views.reserve(kMaxInstances);
         {
-            if (alive[i].load(std::memory_order_acquire) && !isMasterFlags[i])
+            const juce::SpinLock::ScopedLockType lock(spinLock);
+            for (int i = 0; i < kMaxInstances; ++i)
             {
-                TrackView v;
-                v.slotId = i;
-                v.name = trackNames[i];
-                v.isMaster = false;
-                v.params = paramSnaps[i];
-                v.levels = levelSnaps[i];
-                v.solo = soloFlags[i].load(std::memory_order_relaxed);
-                v.mute = muteFlags[i].load(std::memory_order_relaxed);
-                views.push_back(std::move(v));
+                if (alive[i].load(std::memory_order_relaxed) && !isMasterFlags[i])
+                {
+                    TrackView v;
+                    v.slotId = i;
+                    v.name = trackNames[i];
+                    v.isMaster = false;
+                    v.params = paramSnaps[i];
+                    v.levels = levelSnaps[i];
+                    v.solo = soloFlags[i].load(std::memory_order_relaxed);
+                    v.mute = muteFlags[i].load(std::memory_order_relaxed);
+                    views.push_back(std::move(v));
+                }
             }
         }
         return views;

@@ -89,9 +89,6 @@ void ReverbSend::process(juce::AudioBuffer<float>& buffer)
     auto* dataL = buffer.getWritePointer(0);
     auto* dataR = numChannels > 1 ? buffer.getWritePointer(1) : nullptr;
 
-    juce::AudioBuffer<float> drySignal;
-    drySignal.makeCopyOf(buffer);
-
     for (int i = 0; i < numSamples; ++i)
     {
         predelayBufferL[static_cast<size_t>(predelayWritePos)] = dataL[i];

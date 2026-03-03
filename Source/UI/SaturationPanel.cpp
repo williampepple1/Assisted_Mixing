@@ -79,11 +79,13 @@ void SaturationPanel::drawWaveformComparison(juce::Graphics& g, juce::Rectangle<
     auto drawWave = [&](const std::array<float, WaveformBuffer::bufferSize>& data, juce::Colour colour) {
         juce::Path p;
         int displaySamples = juce::jmin((int)data.size(), area.getWidth());
-        int step = (int)data.size() / displaySamples;
+        if (displaySamples <= 0) return;
+        int step = juce::jmax(1, (int)data.size() / displaySamples);
         for (int i = 0; i < displaySamples; ++i)
         {
             float x = area.getX() + (float)i / (float)displaySamples * (float)area.getWidth();
-            float sample = data[static_cast<size_t>(i * step)];
+            size_t idx = static_cast<size_t>(juce::jmin(i * step, (int)data.size() - 1));
+            float sample = data[idx];
             float y = area.getCentreY() - sample * (float)area.getHeight() * 0.45f;
             if (i == 0) p.startNewSubPath(x, y);
             else p.lineTo(x, y);

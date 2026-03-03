@@ -11,6 +11,7 @@ void LevelMeterData::process(const juce::AudioBuffer<float>& buffer)
     };
 
     auto computeRms = [](const float* data, int n) {
+        if (n <= 0) return 0.0f;
         float sum = 0.0f;
         for (int i = 0; i < n; ++i)
             sum += data[i] * data[i];
@@ -18,6 +19,7 @@ void LevelMeterData::process(const juce::AudioBuffer<float>& buffer)
     };
 
     int n = buffer.getNumSamples();
+    if (n <= 0) return;
 
     if (buffer.getNumChannels() >= 1)
     {
