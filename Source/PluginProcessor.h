@@ -16,7 +16,8 @@
 #include "Analysis/WaveformBuffer.h"
 #include "IPC/InstanceHub.h"
 
-class AssistedMixingProcessor : public juce::AudioProcessor
+class AssistedMixingProcessor : public juce::AudioProcessor,
+                                 private juce::AsyncUpdater
 {
 public:
     AssistedMixingProcessor();
@@ -86,6 +87,8 @@ public:
     bool consumePendingPush();
 
 private:
+    void handleAsyncUpdate() override;
+
     juce::AudioProcessorValueTreeState apvts;
 
     GainStage gainStage;

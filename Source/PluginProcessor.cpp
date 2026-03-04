@@ -52,6 +52,7 @@ AssistedMixingProcessor::AssistedMixingProcessor()
 
 AssistedMixingProcessor::~AssistedMixingProcessor()
 {
+    cancelPendingUpdate();
     InstanceHub::getInstance().unregisterInstance(instanceSlotId);
 }
 
@@ -125,6 +126,7 @@ void AssistedMixingProcessor::processBlock(juce::AudioBuffer<float>& buffer, juc
             const juce::SpinLock::ScopedLockType lock(pendingPushLock);
             pendingPush = pushed;
             hasPendingPush.store(true, std::memory_order_release);
+            triggerAsyncUpdate();
         }
 
         // Solo/mute from master
@@ -582,6 +584,11 @@ bool AssistedMixingProcessor::consumePendingPush()
     }
     applyParamSnapshot(snap);
     return true;
+}
+
+void AssistedMixingProcessor::handleAsyncUpdate()
+{
+    consumePendingPush();
 }
 
 void AssistedMixingProcessor::getStateInformation(juce::MemoryBlock& destData)
